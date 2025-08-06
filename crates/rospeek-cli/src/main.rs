@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use rospeek_core::{BagReader, RosbagResult};
+use rospeek_core::{BagReader, CdrDecoder, MessageSchema, RosbagError, RosbagResult};
 use rospeek_db3::Db3Reader;
 use std::path::PathBuf;
 
@@ -26,6 +26,12 @@ enum Commands {
         #[arg(short, long, default_value_t = 1)]
         count: usize,
     },
+
+    /// Decode CDR to json
+    Decode {
+        #[arg(short, long)]
+        topic: String,
+    },
 }
 
 fn main() -> RosbagResult<()> {
@@ -47,6 +53,29 @@ fn main() -> RosbagResult<()> {
             let messages = reader.read_messages(&topic)?;
             for (i, msg) in messages.iter().take(count).enumerate() {
                 println!("[{}] t = {} ns, {} bytes", i, msg.timestamp, msg.data.len());
+            }
+        }
+        Commands::Decode { topic } => {
+            let topic_info = reader
+                .topics()?
+                .into_iter()
+                .find(|t| t.name == topic)
+                .ok_or_else(|| RosbagError::Other(format!("Topic not found: {topic}")))?;
+
+            let schema = MessageSchema::try_from(topic_info.type_name.as_ref()).map_err(|_| {
+                RosbagError::Other(format!("Could not load IDL for {}", topic_info.type_name))
+            })?;
+
+            let messages = reader.read_messages(&topic)?;
+
+            for (i, msg) in messages.iter().enumerate() {
+                println!("=== Message {} ===", i);
+                let mut decoder = CdrDecoder::new(&msg.data);
+                let value = decoder
+                    .decode(&schema)
+                    .map_err(|_| RosbagError::Other(format!("Failed to decode")))?;
+
+                println!("{:#?}", value);
             }
         }
     }
