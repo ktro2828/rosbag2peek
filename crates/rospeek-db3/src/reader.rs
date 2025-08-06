@@ -1,0 +1,74 @@
+use std::path::Path;
+
+use rospeek_core::{BagReader, RawMessage, RosbagError, RosbagResult, Topic};
+use rusqlite::Connection;
+
+pub struct Db3Reader {
+    connection: rusqlite::Connection,
+}
+
+impl BagReader for Db3Reader {
+    fn open<P: AsRef<Path>>(path: P) -> RosbagResult<Self>
+    where
+        Self: Sized,
+    {
+        let connection = Connection::open(path)
+            .map_err(|e| RosbagError::Other(format!("SQLite open error: {}", e)))?;
+        Ok(Self { connection })
+    }
+
+    fn topics(&self) -> RosbagResult<Vec<rospeek_core::Topic>> {
+        let mut statement = self
+            .connection
+            .prepare(
+                "SELECT id, name, type, serialization_format, offered_qos_profiles FROM topics",
+            )
+            .map_err(|e| RosbagError::Other(format!("Prepare statement failed: {}", e)))?;
+
+        let rows = statement
+            .query_map([], |row| {
+                Ok(Topic {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    type_name: row.get(2)?,
+                    serialization_format: row.get(3)?,
+                    offered_qos_profiles: row.get(4)?,
+                })
+            })
+            .map_err(|e| RosbagError::Other(format!("Query failed: {}", e)))?;
+
+        rows.collect::<Result<_, _>>()
+            .map_err(|e| RosbagError::Other(format!("Row mapping failed: {}", e)))
+    }
+
+    fn read_messages(&self, topic_name: &str) -> RosbagResult<Vec<rospeek_core::RawMessage>> {
+        let topic_id = self
+            .connection
+            .query_row(
+                "SELECT id FROM topics WHERE name = ?1",
+                [topic_name],
+                |row| row.get(0),
+            )
+            .map_err(|_| RosbagError::TopicNotFound(topic_name.to_string()))?;
+
+        let mut statement = self
+            .connection
+            .prepare(
+                "SELECT timestamp, data FROM messages WHERE topic_id = ?1 ORDER BY timestamp ASC",
+            )
+            .map_err(|e| RosbagError::Other(format!("Prepare statement failed: {}", e)))?;
+
+        let rows = statement
+            .query_map([topic_id], |row| {
+                Ok(RawMessage {
+                    timestamp: row.get(0)?,
+                    topic_id,
+                    data: row.get(1)?,
+                })
+            })
+            .map_err(|e| RosbagError::Other(format!("Query failed: {}", e)))?;
+
+        rows.collect::<Result<_, _>>()
+            .map_err(|e| RosbagError::Other(format!("Row mapping failed: {}", e)))
+    }
+}

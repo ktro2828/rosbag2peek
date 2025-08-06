@@ -1,0 +1,9 @@
+[package]
+name = "rospeek-cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4.5.42", features = ["derive"] }
+rospeek-core = { version = "0.1.0", path = "../rospeek-core" }
+rospeek-db3 = { version = "0.1.0", path = "../rospeek-db3" }

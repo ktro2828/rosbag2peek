@@ -1,0 +1,8 @@
+[package]
+name = "rospeek-db3"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rospeek-core = { version = "0.1.0", path = "../rospeek-core" }
+rusqlite = "0.37.0"
