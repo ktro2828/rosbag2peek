@@ -39,7 +39,7 @@ pub fn generate_test_db<P: AsRef<Path>>(path: P) {
     // Insert test topic
     conn.execute(
         "INSERT INTO topics (id, name, type, serialization_format) VALUES (?1, ?2, ?3, ?4)",
-        params![1, "/test_topic", "std_msgs/String", "cdr"],
+        params![1, "/test_topic", "std_msgs/msg/String", "cdr"],
     )
     .expect("Failed to insert topic");
 
