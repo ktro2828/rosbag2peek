@@ -36,8 +36,10 @@ rosppek decode <BAG_FILE> --topic <TOPIC_NAME>
 ```
 
 ```shell
-=== Message 0 ===
-Object {
-    "data": String("hello"),
-}
+// === Message 0 ===
+// Object {
+//     "data": String("hello"),
+// }
+
+Success to save JSON to: test_topic.json
 ```

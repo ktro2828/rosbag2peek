@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use rospeek_core::{BagReader, CdrDecoder, MessageSchema, RosPeekError, RosPeekResult};
 use rospeek_db3::Db3Reader;
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{collections::BTreeMap, fs::File, path::PathBuf};
 
 #[derive(Parser)]
 #[command(name = "rospeek", about = "Peek into rosbag files", long_about = None)]
@@ -48,6 +48,7 @@ fn main() -> RosPeekResult<()> {
             // TODO(ktro2828): add support of McapReader
             let reader: Box<dyn BagReader> = Box::new(Db3Reader::open(bag)?);
 
+            // group topics by namespace
             let mut grouped: BTreeMap<String, Vec<_>> = BTreeMap::new();
             for topic in reader.topics()? {
                 let key = topic
@@ -61,6 +62,7 @@ fn main() -> RosPeekResult<()> {
             }
             println!("  Topic name  |  [Message type]  |  (Serialization format)");
             for (_, mut topics) in grouped {
+                // sort topics by topic name
                 topics.sort_by(|a, b| a.name.cmp(&b.name));
                 for topic in topics {
                     println!(
@@ -81,6 +83,7 @@ fn main() -> RosPeekResult<()> {
             }
         }
         Commands::Decode { bag, topic } => {
+            println!(">> Start decoding: {}", topic);
             // TODO(ktro2828): add support of McapReader
             let reader: Box<dyn BagReader> = Box::new(Db3Reader::open(bag)?);
 
@@ -94,12 +97,19 @@ fn main() -> RosPeekResult<()> {
             let mut decoder = CdrDecoder::from_schema(&schema);
 
             let messages = reader.read_messages(&topic)?;
-            for (i, msg) in messages.iter().enumerate() {
-                println!("=== Message {} ===", i);
+            let mut results = Vec::new();
+            for (_, msg) in messages.iter().enumerate() {
                 // let value = CdrDecoder::new(&msg.data).decode(&schema)?;
                 let value = decoder.reset(&msg.data).decode(&schema)?;
-                println!("{:#?}", value);
+                results.push(value);
             }
+            println!("✨Finish decoding all messages");
+            println!(">> Start saving results as JSON");
+            let filename = topic.trim_start_matches('/').replace('/', ".") + ".json";
+            let writer = File::create(&filename)?;
+            serde_json::to_writer_pretty(writer, &results)
+                .map_err(|_| RosPeekError::Other("Failed to write JSON".to_string()))?;
+            println!("✨Success to save JSON to: {}", filename);
         }
     }
 
