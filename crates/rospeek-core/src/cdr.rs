@@ -3,7 +3,7 @@ use std::io::{Cursor, Read};
 use serde_json::json;
 
 use crate::{
-    MessageField, MessageSchema,
+    FieldType, MessageField, MessageSchema,
     error::{SchemaError, SchemaResult},
 };
 
@@ -22,8 +22,8 @@ impl<'a> CdrDecoder<'a> {
         let mut object = serde_json::Map::new();
 
         for field in schema.fields.iter() {
-            let value = if field.is_array {
-                self.decode_array(field)?
+            let value = if field.is_iterable() {
+                self.decode_iterable(field)?
             } else {
                 self.decode_primitive(field)?
             };
@@ -35,7 +35,7 @@ impl<'a> CdrDecoder<'a> {
     fn decode_primitive(&mut self, field: &MessageField) -> SchemaResult<serde_json::Value> {
         // NOTE: https://design.ros2.org/articles/idl_interface_definition.html
         // TODO: [wchar, wstring] is not supported yet
-        match field.type_name.as_str() {
+        match field.type_name() {
             "boolean" => Ok(json!(self.decode_bool()?)),
             "octet" => Ok(json!(self.decode_u8()?)),
             "char" => Ok(json!(self.decode_char()?)),
@@ -61,18 +61,19 @@ impl<'a> CdrDecoder<'a> {
             }
             // === nested structures ===
             _ => {
-                let nested_schema = MessageSchema::try_from(field.type_name.as_ref())?;
+                let nested_schema = MessageSchema::try_from(field.type_name())?;
                 self.decode(&nested_schema)
             }
         }
     }
 
-    fn decode_array(&mut self, field: &MessageField) -> SchemaResult<serde_json::Value> {
-        let length = if let Some(n) = field.array_len {
-            n
-        } else {
-            self.decode_u32()? as usize
+    fn decode_iterable(&mut self, field: &MessageField) -> SchemaResult<serde_json::Value> {
+        let length = match field.field_type {
+            FieldType::Array(_, n) => n,
+            FieldType::Sequence(_) => self.decode_u32()? as usize,
+            _ => 0,
         };
+
         let mut items = Vec::with_capacity(length);
         for _ in 0..length {
             items.push(self.decode_primitive(field)?);

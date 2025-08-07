@@ -1,16 +1,29 @@
 use std::{env, fs::read_to_string, path::PathBuf};
 
+use regex::Regex;
+
 use crate::error::{SchemaError, SchemaResult};
 
 #[derive(Debug)]
 pub struct MessageSchema {
+    /// Name of ROS message type, such ash `foo_msgs/msg/Foo`.
     pub type_name: String,
+    /// Vector of message fields.
     pub fields: Vec<MessageField>,
 }
 
 impl TryFrom<&str> for MessageSchema {
     type Error = SchemaError;
 
+    /// Performs to try converting `type_name` into `MessageSchema` by looking up the corresponding IDL file.
+    ///
+    /// # Arguments
+    /// * `type_name` - Name of ROS message, such as `foo_msgs/msg/Foo`.
+    ///
+    /// # Examples
+    /// ```
+    /// let schema = rospeek_core::MessageSchema::try_from("std_msgs/msg/Float64").unwrap();
+    /// ```
     fn try_from(type_name: &str) -> Result<Self, Self::Error> {
         let idl_path =
             find_ros_idl_path(type_name).ok_or(SchemaError::IdlNotFound(type_name.to_string()))?;
@@ -22,12 +35,59 @@ impl TryFrom<&str> for MessageSchema {
 
 #[derive(Debug)]
 pub struct MessageField {
+    /// Name of field.
     pub name: String,
-    pub type_name: String,
-    pub is_array: bool,
-    pub array_len: Option<usize>,
+    /// Field type
+    pub field_type: FieldType,
 }
 
+impl MessageField {
+    pub fn type_name(&self) -> &str {
+        self.field_type.type_name()
+    }
+
+    pub fn is_iterable(&self) -> bool {
+        self.field_type.is_iterable()
+    }
+}
+
+#[derive(Debug)]
+pub enum FieldType {
+    Object(String),
+    Sequence(String),
+    Array(String, usize),
+}
+
+impl FieldType {
+    pub fn type_name(&self) -> &str {
+        match self {
+            FieldType::Object(n) => n,
+            FieldType::Sequence(n) => n,
+            FieldType::Array(n, _) => n,
+        }
+    }
+
+    pub fn is_iterable(&self) -> bool {
+        match self {
+            FieldType::Object(_) => false,
+            _ => true,
+        }
+    }
+}
+
+/// Performs to try looking up the corresponding IDL file.
+///
+/// # Arguments
+/// * `type_name` - Name of ROS message type, such as `foo_msgs/msg/Foo`.
+///
+/// # Examples
+/// ```
+/// use std::path::PathBuf;
+///
+/// let path = rospeek_core::find_ros_idl_path("std_msgs/msg/Float64").unwrap();
+///
+/// assert_eq!(path, PathBuf::from("/opt/ros/humble/share/std_msgs/msg/Float64.idl"));
+/// ```
 pub fn find_ros_idl_path(type_name: &str) -> Option<PathBuf> {
     let mut type_name_parts = type_name.split('/');
     let package = type_name_parts.next()?;
@@ -52,6 +112,24 @@ pub fn find_ros_idl_path(type_name: &str) -> Option<PathBuf> {
     None
 }
 
+/// Performs to try parsing IDL and convert to `MessageSchema`.
+///
+/// # Arguments
+/// * `idl` - IDL definition in string.
+/// * `type_name` - Name of ROS message type, such as `foo_msgs/msg/Foo`.
+///
+/// # Examples
+/// ```
+/// use std::fs::read_to_string;
+///
+/// let idl = read_to_string("/opt/ros/humble/share/std_msgs/msg/Float64.idl").unwrap();
+/// let schema = rospeek_core::parse_idl_to_schema(&idl, "std_msgs/msg/Float64").unwrap();
+///
+/// assert_eq!(schema.type_name, "std_msgs/msg/Float64".to_string());
+/// assert_eq!(schema.fields.len(), 1);
+/// assert_eq!(schema.fields[0].name, "data".to_string());
+/// assert_eq!(schema.fields[0].type_name(), "double".to_string());
+/// ```
 pub fn parse_idl_to_schema(idl: &str, type_name: &str) -> SchemaResult<MessageSchema> {
     let mut fields = Vec::new();
 
@@ -69,25 +147,11 @@ pub fn parse_idl_to_schema(idl: &str, type_name: &str) -> SchemaResult<MessageSc
 
         let (type_decl, name) = (tokens[0], tokens[1]);
 
-        let (type_name, is_array, array_len) = if type_decl.ends_with("[]") {
-            (type_decl.trim_end_matches("[]").to_string(), true, None)
-        } else if let Some(start) = type_decl.find('[') {
-            let base = &type_decl[..start];
-            let len = &type_decl[start + 1..type_decl.len() - 1];
-            (
-                base.to_string(),
-                true,
-                Some(len.parse::<usize>().unwrap_or(0)), // unsafe fallback
-            )
-        } else {
-            (type_decl.to_string(), false, None)
-        };
+        let field_type = to_field_type(type_decl);
 
         fields.push(MessageField {
             name: name.to_string(),
-            type_name,
-            is_array,
-            array_len,
+            field_type,
         });
     }
 
@@ -95,4 +159,23 @@ pub fn parse_idl_to_schema(idl: &str, type_name: &str) -> SchemaResult<MessageSc
         type_name: type_name.to_string(),
         fields,
     })
+}
+
+fn to_field_type(s: &str) -> FieldType {
+    let re = Regex::new(r"^(?P<type>.+)__(?P<num>\d+)$").unwrap();
+    if let Some(capture) = re.captures(s) {
+        let type_name = capture.name("type").unwrap().as_str().replace("::", "/");
+        let num = capture
+            .name("num")
+            .unwrap()
+            .as_str()
+            .parse::<usize>()
+            .unwrap_or(0);
+        FieldType::Array(type_name, num)
+    } else if s.starts_with("sequence<") && s.ends_with(">") {
+        let type_name = &s["sequence<".len()..s.len() - 1];
+        FieldType::Sequence(type_name.replace("::", "/"))
+    } else {
+        FieldType::Object(s.replace("::", "/"))
+    }
 }

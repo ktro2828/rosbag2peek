@@ -1,4 +1,4 @@
-use rospeek_core::{CdrDecoder, MessageField, MessageSchema};
+use rospeek_core::{CdrDecoder, FieldType, MessageField, MessageSchema};
 
 #[test]
 fn test_decode_time() {
@@ -15,15 +15,11 @@ fn test_decode_time() {
         fields: vec![
             MessageField {
                 name: "sec".into(),
-                type_name: "int32".into(),
-                is_array: false,
-                array_len: None,
+                field_type: FieldType::Object("int32".into()),
             },
             MessageField {
                 name: "nanosec".into(),
-                type_name: "uint32".into(),
-                is_array: false,
-                array_len: None,
+                field_type: FieldType::Object("uint32".into()),
             },
         ],
     });
@@ -51,15 +47,11 @@ fn test_decode_duration() {
         fields: vec![
             MessageField {
                 name: "sec".into(),
-                type_name: "int32".into(),
-                is_array: false,
-                array_len: None,
+                field_type: FieldType::Object("int32".into()),
             },
             MessageField {
                 name: "nanosec".into(),
-                type_name: "uint32".into(),
-                is_array: false,
-                array_len: None,
+                field_type: FieldType::Object("uint32".into()),
             },
         ],
     });
@@ -87,9 +79,7 @@ fn test_decode_string_array() {
         type_name: type_name.clone(),
         fields: vec![MessageField {
             name: "values".to_string(),
-            type_name: "string".to_string(),
-            is_array: true,
-            array_len: None,
+            field_type: FieldType::Sequence("string".to_string()),
         }],
     };
 
