@@ -37,7 +37,8 @@ enum Commands {
 fn main() -> RosPeekResult<()> {
     let cli = Cli::parse();
 
-    let reader = Db3Reader::open(cli.bag)?;
+    // TODO(ktro2828): add support of McapReader
+    let reader: Box<dyn BagReader> = Box::new(Db3Reader::open(cli.bag)?);
 
     match cli.command {
         Commands::ListTopics => {
@@ -68,9 +69,7 @@ fn main() -> RosPeekResult<()> {
 
             for (i, msg) in messages.iter().enumerate() {
                 println!("=== Message {} ===", i);
-                let mut decoder = CdrDecoder::new(&msg.data);
-                let value = decoder.decode(&schema)?;
-
+                let value = CdrDecoder::new(&msg.data).decode(&schema)?;
                 println!("{:#?}", value);
             }
         }
