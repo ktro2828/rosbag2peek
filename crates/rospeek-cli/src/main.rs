@@ -6,9 +6,6 @@ use std::path::PathBuf;
 #[derive(Parser)]
 #[command(name = "rospeek", about = "Peek into rosbag files", long_about = None)]
 struct Cli {
-    #[arg(short, long)]
-    bag: PathBuf,
-
     #[command(subcommand)]
     command: Commands,
 }
@@ -16,20 +13,29 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// List all topics int the bag
-    ListTopics,
+    ListTopics {
+        #[arg(value_name = "BAGFILE", help = "Path to the .db3 bag file")]
+        bag: PathBuf,
+    },
 
     /// Show the first N messages of a topic
     Show {
-        #[arg(short, long)]
+        #[arg(value_name = "BAGFILE", help = "Path to the .db3 bag file")]
+        bag: PathBuf,
+
+        #[arg(short, long, help = "Topic name to read messages (e.g. /tf)")]
         topic: String,
 
-        #[arg(short, long, default_value_t = 1)]
+        #[arg(short, long, default_value_t = 1, help = "Number of messages to show")]
         count: usize,
     },
 
     /// Decode CDR to json
     Decode {
-        #[arg(short, long)]
+        #[arg(value_name = "BAGFILE", help = "Path to the .db3 bag file")]
+        bag: PathBuf,
+
+        #[arg(short, long, help = "Topic name to decode (e.g. /tf)")]
         topic: String,
     },
 }
@@ -37,11 +43,11 @@ enum Commands {
 fn main() -> RosPeekResult<()> {
     let cli = Cli::parse();
 
-    // TODO(ktro2828): add support of McapReader
-    let reader: Box<dyn BagReader> = Box::new(Db3Reader::open(cli.bag)?);
-
     match cli.command {
-        Commands::ListTopics => {
+        Commands::ListTopics { bag } => {
+            // TODO(ktro2828): add support of McapReader
+            let reader: Box<dyn BagReader> = Box::new(Db3Reader::open(bag)?);
+
             let topics = reader.topics()?;
             for topic in topics {
                 println!(
@@ -50,13 +56,19 @@ fn main() -> RosPeekResult<()> {
                 );
             }
         }
-        Commands::Show { topic, count } => {
+        Commands::Show { bag, topic, count } => {
+            // TODO(ktro2828): add support of McapReader
+            let reader: Box<dyn BagReader> = Box::new(Db3Reader::open(bag)?);
+
             let messages = reader.read_messages(&topic)?;
             for (i, msg) in messages.iter().take(count).enumerate() {
                 println!("[{}] t = {} ns, {} bytes", i, msg.timestamp, msg.data.len());
             }
         }
-        Commands::Decode { topic } => {
+        Commands::Decode { bag, topic } => {
+            // TODO(ktro2828): add support of McapReader
+            let reader: Box<dyn BagReader> = Box::new(Db3Reader::open(bag)?);
+
             let topic_info = reader
                 .topics()?
                 .into_iter()
