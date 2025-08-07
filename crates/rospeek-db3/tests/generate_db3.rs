@@ -44,7 +44,11 @@ pub fn generate_test_db<P: AsRef<Path>>(path: P) {
     .expect("Failed to insert topic");
 
     // Insert test message (e.g., serialized "hello")
-    let cdr_hello: Vec<u8> = vec![0x0A, 0x05, b'h', b'e', b'l', b'l', b'o'];
+    let cdr_hello: Vec<u8> = vec![
+        0x00, 0x01, 0x00, 0x00, // CDR header
+        0x06, 0x00, 0x00, 0x00, // length = 6
+        b'h', b'e', b'l', b'l', b'o', 0x00, // "hello\0"
+    ];
     conn.execute(
         "INSERT INTO messages (id, topic_id, timestamp, data) VALUES (?1, ?2, ?3, ?4)",
         params![1, 1, 1234567890i64, cdr_hello],

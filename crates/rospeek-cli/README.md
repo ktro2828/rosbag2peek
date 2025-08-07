@@ -34,3 +34,10 @@ rospeek show <BAG_FILE> --topic <TOPIC_NAME> --count <NUM_COUNT>
 ```shell
 rosppek decode <BAG_FILE> --topic <TOPIC_NAME>
 ```
+
+```shell
+=== Message 0 ===
+Object {
+    "data": String("hello"),
+}
+```
