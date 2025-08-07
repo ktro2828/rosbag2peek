@@ -3,6 +3,7 @@ use rospeek_core::{CdrDecoder, FieldType, MessageField, MessageSchema};
 #[test]
 fn test_decode_time() {
     let data = [
+        0x00, 0x01, 0x00, 0x00, // CDR header
         0xD2, 0x02, 0x00, 0x00, // sec = 722
         0x88, 0x13, 0x00, 0x00, // nanosec = 5000
     ];
@@ -35,6 +36,7 @@ fn test_decode_time() {
 #[test]
 fn test_decode_duration() {
     let data = [
+        0x00, 0x01, 0x00, 0x00, // CDR header
         0xD2, 0x02, 0x00, 0x00, // sec = 722
         0x88, 0x13, 0x00, 0x00, // nanosec = 5000
     ];
@@ -67,6 +69,7 @@ fn test_decode_duration() {
 #[test]
 fn test_decode_string_array() {
     let data = [
+        0x00, 0x01, 0x00, 0x00, // CDR header
         0x02, 0x00, 0x00, 0x00, // array length = 2
         0x06, 0x00, 0x00, 0x00, // string length = 6
         b'h', b'e', b'l', b'l', b'o', 0x00, // "hello\\0"

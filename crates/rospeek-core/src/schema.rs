@@ -53,13 +53,16 @@ impl MessageField {
 
 #[derive(Debug)]
 pub enum FieldType {
+    /// Primitive or nested structures, where `T`: (type_name)
     Object(String),
+    /// Sequential objects, where `sequence<T>`: (type_name)
     Sequence(String),
+    /// Array objects, where `T[N]`: (type_name, length)
     Array(String, usize),
 }
 
 impl FieldType {
-    pub fn type_name(&self) -> &str {
+    fn type_name(&self) -> &str {
         match self {
             FieldType::Object(n) => n,
             FieldType::Sequence(n) => n,
@@ -67,7 +70,7 @@ impl FieldType {
         }
     }
 
-    pub fn is_iterable(&self) -> bool {
+    fn is_iterable(&self) -> bool {
         match self {
             FieldType::Object(_) => false,
             _ => true,

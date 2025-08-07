@@ -7,14 +7,29 @@ use crate::{
     error::{SchemaError, SchemaResult},
 };
 
+#[derive(Debug)]
+enum Endianness {
+    Little,
+    Big,
+}
+
 pub struct CdrDecoder<'a> {
     cursor: Cursor<&'a [u8]>,
+    endianness: Endianness,
 }
 
 impl<'a> CdrDecoder<'a> {
     pub fn new(data: &'a [u8]) -> Self {
+        // determine endianness by checking the second byte
+        let endianness = match data.get(1).copied().unwrap_or(0x01) {
+            0x00 => Endianness::Big,
+            0x01 => Endianness::Little,
+            _ => Endianness::Little,
+        };
+
         Self {
-            cursor: Cursor::new(data),
+            cursor: Cursor::new(&data[4..]), // first 4bytes are header, so skip them
+            endianness,
         }
     }
 
@@ -33,9 +48,10 @@ impl<'a> CdrDecoder<'a> {
     }
 
     fn decode_primitive(&mut self, field: &MessageField) -> SchemaResult<serde_json::Value> {
-        // NOTE: https://design.ros2.org/articles/idl_interface_definition.html
-        // TODO: [wchar, wstring] is not supported yet
         match field.type_name() {
+            // === primitive types ===
+            // NOTE: https://design.ros2.org/articles/idl_interface_definition.html
+            // TODO(ktro2828): [wchar, wstring] is not supported yet
             "boolean" => Ok(json!(self.decode_bool()?)),
             "octet" => Ok(json!(self.decode_u8()?)),
             "char" => Ok(json!(self.decode_char()?)),
@@ -51,10 +67,7 @@ impl<'a> CdrDecoder<'a> {
             "uint64" => Ok(json!(self.decode_u64()?)),
             "string" => Ok(json!(self.decode_string()?)),
             // === special ROS 2 types ===
-            "builtin_interfaces/msg/Time/Time"
-            | "builtin_interfaces/Time"
-            | "builtin_interfaces/msg/Duration"
-            | "builtin_interfaces/Duration" => {
+            "builtin_interfaces/msg/Time" | "builtin_interfaces/msg/Duration" => {
                 let sec = self.decode_i32()?;
                 let nanosec = self.decode_u32()?;
                 Ok(json!({"sec": sec, "nanosec": nanosec}))
@@ -83,6 +96,16 @@ impl<'a> CdrDecoder<'a> {
 
     // === Decode methods for each primitive ===
 
+    fn align_to(&mut self, align: usize) -> SchemaResult<()> {
+        let pos = self.cursor.position() as usize;
+        let padding = (align - (pos % align)) % align;
+        if padding > 0 {
+            self.decode_bytes::<1>()?;
+            self.cursor.set_position((pos + padding) as u64);
+        }
+        Ok(())
+    }
+
     fn decode_bytes<const N: usize>(&mut self) -> SchemaResult<[u8; N]> {
         let mut buf = [0u8; N];
         self.cursor.read_exact(&mut buf)?;
@@ -105,43 +128,75 @@ impl<'a> CdrDecoder<'a> {
     }
 
     fn decode_u16(&mut self) -> SchemaResult<u16> {
+        self.align_to(2)?;
         let buf = self.decode_bytes::<2>()?;
-        Ok(u16::from_le_bytes(buf))
+        Ok(match self.endianness {
+            Endianness::Big => u16::from_be_bytes(buf),
+            Endianness::Little => u16::from_le_bytes(buf),
+        })
     }
 
     fn decode_i16(&mut self) -> SchemaResult<i16> {
+        self.align_to(2)?;
         let buf = self.decode_bytes::<2>()?;
-        Ok(i16::from_le_bytes(buf))
+        Ok(match self.endianness {
+            Endianness::Big => i16::from_be_bytes(buf),
+            Endianness::Little => i16::from_le_bytes(buf),
+        })
     }
 
     fn decode_u32(&mut self) -> SchemaResult<u32> {
+        self.align_to(4)?;
         let buf = self.decode_bytes::<4>()?;
-        Ok(u32::from_le_bytes(buf))
+        Ok(match self.endianness {
+            Endianness::Big => u32::from_be_bytes(buf),
+            Endianness::Little => u32::from_le_bytes(buf),
+        })
     }
 
     fn decode_i32(&mut self) -> SchemaResult<i32> {
+        self.align_to(4)?;
         let buf = self.decode_bytes::<4>()?;
-        Ok(i32::from_le_bytes(buf))
+        Ok(match self.endianness {
+            Endianness::Big => i32::from_be_bytes(buf),
+            Endianness::Little => i32::from_le_bytes(buf),
+        })
     }
 
     fn decode_u64(&mut self) -> SchemaResult<u64> {
+        self.align_to(8)?;
         let buf = self.decode_bytes::<8>()?;
-        Ok(u64::from_le_bytes(buf))
+        Ok(match self.endianness {
+            Endianness::Big => u64::from_be_bytes(buf),
+            Endianness::Little => u64::from_le_bytes(buf),
+        })
     }
 
     fn decode_i64(&mut self) -> SchemaResult<i64> {
+        self.align_to(8)?;
         let buf = self.decode_bytes::<8>()?;
-        Ok(i64::from_le_bytes(buf))
+        Ok(match self.endianness {
+            Endianness::Big => i64::from_be_bytes(buf),
+            Endianness::Little => i64::from_le_bytes(buf),
+        })
     }
 
     fn decode_f32(&mut self) -> SchemaResult<f32> {
+        self.align_to(4)?;
         let buf = self.decode_bytes::<4>()?;
-        Ok(f32::from_le_bytes(buf))
+        Ok(match self.endianness {
+            Endianness::Big => f32::from_be_bytes(buf),
+            Endianness::Little => f32::from_le_bytes(buf),
+        })
     }
 
     fn decode_f64(&mut self) -> SchemaResult<f64> {
+        self.align_to(8)?;
         let buf = self.decode_bytes::<8>()?;
-        Ok(f64::from_le_bytes(buf))
+        Ok(match self.endianness {
+            Endianness::Big => f64::from_be_bytes(buf),
+            Endianness::Little => f64::from_le_bytes(buf),
+        })
     }
 
     fn decode_char(&mut self) -> SchemaResult<char> {
