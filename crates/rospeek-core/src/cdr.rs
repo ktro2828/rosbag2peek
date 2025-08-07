@@ -4,7 +4,7 @@ use serde_json::json;
 
 use crate::{
     FieldType, MessageField, MessageSchema,
-    error::{SchemaError, SchemaResult},
+    error::{RosPeekError, RosPeekResult},
 };
 
 #[derive(Debug)]
@@ -33,7 +33,7 @@ impl<'a> CdrDecoder<'a> {
         }
     }
 
-    pub fn decode(&mut self, schema: &MessageSchema) -> SchemaResult<serde_json::Value> {
+    pub fn decode(&mut self, schema: &MessageSchema) -> RosPeekResult<serde_json::Value> {
         let mut object = serde_json::Map::new();
 
         for field in schema.fields.iter() {
@@ -47,7 +47,7 @@ impl<'a> CdrDecoder<'a> {
         Ok(serde_json::Value::Object(object))
     }
 
-    fn decode_primitive(&mut self, field: &MessageField) -> SchemaResult<serde_json::Value> {
+    fn decode_primitive(&mut self, field: &MessageField) -> RosPeekResult<serde_json::Value> {
         match field.type_name() {
             // === primitive types ===
             // NOTE: https://design.ros2.org/articles/idl_interface_definition.html
@@ -80,7 +80,7 @@ impl<'a> CdrDecoder<'a> {
         }
     }
 
-    fn decode_iterable(&mut self, field: &MessageField) -> SchemaResult<serde_json::Value> {
+    fn decode_iterable(&mut self, field: &MessageField) -> RosPeekResult<serde_json::Value> {
         let length = match field.field_type {
             FieldType::Array(_, n) => n,
             FieldType::Sequence(_) => self.decode_u32()? as usize,
@@ -96,7 +96,7 @@ impl<'a> CdrDecoder<'a> {
 
     // === Decode methods for each primitive ===
 
-    fn align_to(&mut self, align: usize) -> SchemaResult<()> {
+    fn align_to(&mut self, align: usize) -> RosPeekResult<()> {
         let pos = self.cursor.position() as usize;
         let padding = (align - (pos % align)) % align;
         if padding > 0 {
@@ -106,28 +106,28 @@ impl<'a> CdrDecoder<'a> {
         Ok(())
     }
 
-    fn decode_bytes<const N: usize>(&mut self) -> SchemaResult<[u8; N]> {
+    fn decode_bytes<const N: usize>(&mut self) -> RosPeekResult<[u8; N]> {
         let mut buf = [0u8; N];
         self.cursor.read_exact(&mut buf)?;
         Ok(buf)
     }
 
-    fn decode_bool(&mut self) -> SchemaResult<bool> {
+    fn decode_bool(&mut self) -> RosPeekResult<bool> {
         let b = self.decode_u8()?;
         Ok(b != 0)
     }
 
-    fn decode_u8(&mut self) -> SchemaResult<u8> {
+    fn decode_u8(&mut self) -> RosPeekResult<u8> {
         let mut buf = [0u8; 1];
         self.cursor.read_exact(&mut buf)?;
         Ok(buf[0])
     }
 
-    fn decode_i8(&mut self) -> SchemaResult<i8> {
+    fn decode_i8(&mut self) -> RosPeekResult<i8> {
         self.decode_u8().map(|v| v as i8)
     }
 
-    fn decode_u16(&mut self) -> SchemaResult<u16> {
+    fn decode_u16(&mut self) -> RosPeekResult<u16> {
         self.align_to(2)?;
         let buf = self.decode_bytes::<2>()?;
         Ok(match self.endianness {
@@ -136,7 +136,7 @@ impl<'a> CdrDecoder<'a> {
         })
     }
 
-    fn decode_i16(&mut self) -> SchemaResult<i16> {
+    fn decode_i16(&mut self) -> RosPeekResult<i16> {
         self.align_to(2)?;
         let buf = self.decode_bytes::<2>()?;
         Ok(match self.endianness {
@@ -145,7 +145,7 @@ impl<'a> CdrDecoder<'a> {
         })
     }
 
-    fn decode_u32(&mut self) -> SchemaResult<u32> {
+    fn decode_u32(&mut self) -> RosPeekResult<u32> {
         self.align_to(4)?;
         let buf = self.decode_bytes::<4>()?;
         Ok(match self.endianness {
@@ -154,7 +154,7 @@ impl<'a> CdrDecoder<'a> {
         })
     }
 
-    fn decode_i32(&mut self) -> SchemaResult<i32> {
+    fn decode_i32(&mut self) -> RosPeekResult<i32> {
         self.align_to(4)?;
         let buf = self.decode_bytes::<4>()?;
         Ok(match self.endianness {
@@ -163,7 +163,7 @@ impl<'a> CdrDecoder<'a> {
         })
     }
 
-    fn decode_u64(&mut self) -> SchemaResult<u64> {
+    fn decode_u64(&mut self) -> RosPeekResult<u64> {
         self.align_to(8)?;
         let buf = self.decode_bytes::<8>()?;
         Ok(match self.endianness {
@@ -172,7 +172,7 @@ impl<'a> CdrDecoder<'a> {
         })
     }
 
-    fn decode_i64(&mut self) -> SchemaResult<i64> {
+    fn decode_i64(&mut self) -> RosPeekResult<i64> {
         self.align_to(8)?;
         let buf = self.decode_bytes::<8>()?;
         Ok(match self.endianness {
@@ -181,7 +181,7 @@ impl<'a> CdrDecoder<'a> {
         })
     }
 
-    fn decode_f32(&mut self) -> SchemaResult<f32> {
+    fn decode_f32(&mut self) -> RosPeekResult<f32> {
         self.align_to(4)?;
         let buf = self.decode_bytes::<4>()?;
         Ok(match self.endianness {
@@ -190,7 +190,7 @@ impl<'a> CdrDecoder<'a> {
         })
     }
 
-    fn decode_f64(&mut self) -> SchemaResult<f64> {
+    fn decode_f64(&mut self) -> RosPeekResult<f64> {
         self.align_to(8)?;
         let buf = self.decode_bytes::<8>()?;
         Ok(match self.endianness {
@@ -199,18 +199,18 @@ impl<'a> CdrDecoder<'a> {
         })
     }
 
-    fn decode_char(&mut self) -> SchemaResult<char> {
+    fn decode_char(&mut self) -> RosPeekResult<char> {
         let code = self.decode_u8()?; // char in IDL is ASCII
         Ok(code as char)
     }
 
-    fn decode_string(&mut self) -> SchemaResult<String> {
+    fn decode_string(&mut self) -> RosPeekResult<String> {
         let len = self.decode_u32()? as usize;
         let mut buf = vec![0u8; len];
         self.cursor.read_exact(&mut buf)?;
         if buf.last() == Some(&0) {
-            buf.pop(); // null terminator (optional in ROS2)
+            buf.pop(); // null terminator (optional in ROS 2)
         }
-        String::from_utf8(buf).map_err(|e| SchemaError::InvalidData(e))
+        String::from_utf8(buf).map_err(|e| RosPeekError::InvalidUtf8(e))
     }
 }

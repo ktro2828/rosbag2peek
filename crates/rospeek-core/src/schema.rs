@@ -2,7 +2,7 @@ use std::{env, fs::read_to_string, path::PathBuf};
 
 use regex::Regex;
 
-use crate::error::{SchemaError, SchemaResult};
+use crate::error::{RosPeekError, RosPeekResult};
 
 #[derive(Debug)]
 pub struct MessageSchema {
@@ -13,7 +13,7 @@ pub struct MessageSchema {
 }
 
 impl TryFrom<&str> for MessageSchema {
-    type Error = SchemaError;
+    type Error = RosPeekError;
 
     /// Performs to try converting `type_name` into `MessageSchema` by looking up the corresponding IDL file.
     ///
@@ -26,7 +26,7 @@ impl TryFrom<&str> for MessageSchema {
     /// ```
     fn try_from(type_name: &str) -> Result<Self, Self::Error> {
         let idl_path =
-            find_ros_idl_path(type_name).ok_or(SchemaError::IdlNotFound(type_name.to_string()))?;
+            find_ros_idl_path(type_name).ok_or(RosPeekError::IdlNotFound(type_name.to_string()))?;
         let idl = read_to_string(idl_path)?;
         let schema = parse_idl_to_schema(&idl, type_name)?;
         Ok(schema)
@@ -133,7 +133,7 @@ pub fn find_ros_idl_path(type_name: &str) -> Option<PathBuf> {
 /// assert_eq!(schema.fields[0].name, "data".to_string());
 /// assert_eq!(schema.fields[0].type_name(), "double".to_string());
 /// ```
-pub fn parse_idl_to_schema(idl: &str, type_name: &str) -> SchemaResult<MessageSchema> {
+pub fn parse_idl_to_schema(idl: &str, type_name: &str) -> RosPeekResult<MessageSchema> {
     let mut fields = Vec::new();
 
     let lines = idl
