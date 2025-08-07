@@ -1,4 +1,8 @@
-use std::io::{Cursor, Read};
+use std::{
+    collections::HashMap,
+    io::{Cursor, Read},
+    sync::Arc,
+};
 
 use serde_json::json;
 
@@ -16,6 +20,7 @@ enum Endianness {
 pub struct CdrDecoder<'a> {
     cursor: Cursor<&'a [u8]>,
     endianness: Endianness,
+    cache: HashMap<String, Arc<MessageSchema>>,
 }
 
 impl<'a> CdrDecoder<'a> {
@@ -30,6 +35,7 @@ impl<'a> CdrDecoder<'a> {
         Self {
             cursor: Cursor::new(&data[4..]), // first 4bytes are header, so skip them
             endianness,
+            cache: HashMap::new(),
         }
     }
 
@@ -74,8 +80,8 @@ impl<'a> CdrDecoder<'a> {
             }
             // === nested structures ===
             _ => {
-                let nested_schema = MessageSchema::try_from(field.type_name())?;
-                self.decode(&nested_schema)
+                let nested_schema = self.get_schema(field.type_name())?;
+                self.decode(nested_schema.as_ref())
             }
         }
     }
@@ -92,6 +98,14 @@ impl<'a> CdrDecoder<'a> {
             items.push(self.decode_primitive(field)?);
         }
         Ok(json!(items))
+    }
+
+    fn get_schema(&mut self, type_name: &str) -> RosPeekResult<Arc<MessageSchema>> {
+        if !self.cache.contains_key(type_name) {
+            let schema = Arc::new(MessageSchema::try_from(type_name)?);
+            self.cache.insert(type_name.to_string(), schema);
+        }
+        Ok(self.cache.get(type_name).unwrap().clone())
     }
 
     // === Decode methods for each primitive ===
