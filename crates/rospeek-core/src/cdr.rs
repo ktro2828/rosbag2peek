@@ -23,14 +23,22 @@ pub struct CdrDecoder<'a> {
     cache: HashMap<String, Arc<MessageSchema>>,
 }
 
+fn to_endianness(data: &[u8]) -> Endianness {
+    match data.get(1).copied().unwrap_or(0x01) {
+        0x00 => Endianness::Big,
+        0x01 => Endianness::Little,
+        _ => Endianness::Little,
+    }
+}
+
 impl<'a> CdrDecoder<'a> {
+    /// Creates a new decoder from CDR-encoded data.
+    ///
+    /// # Arguments
+    /// * `data` - CDR-encoded data
     pub fn new(data: &'a [u8]) -> Self {
         // determine endianness by checking the second byte
-        let endianness = match data.get(1).copied().unwrap_or(0x01) {
-            0x00 => Endianness::Big,
-            0x01 => Endianness::Little,
-            _ => Endianness::Little,
-        };
+        let endianness = to_endianness(data);
 
         Self {
             cursor: Cursor::new(&data[4..]), // first 4bytes are header, so skip them
@@ -39,6 +47,34 @@ impl<'a> CdrDecoder<'a> {
         }
     }
 
+    /// Creates a new decoder from schema.
+    ///
+    /// # Arguments
+    /// * `schema` - ROS message schema
+    pub fn from_schema(schema: &MessageSchema) -> Self {
+        let mut cache = HashMap::new();
+        cache.insert(schema.type_name.clone(), Arc::new(schema.clone()));
+        Self {
+            cursor: Cursor::new(&[]),
+            endianness: Endianness::Little,
+            cache,
+        }
+    }
+
+    /// Resets cursor from CDR-encoded data.
+    ///
+    /// # Arguments
+    /// * `data` - CDR-encoded data
+    pub fn reset(&mut self, data: &'a [u8]) -> &mut Self {
+        self.endianness = to_endianness(data);
+        self.cursor = Cursor::new(&data[4..]);
+        self
+    }
+
+    /// Performs decoding CDR-encoded data for the corresponding schema.
+    ///
+    /// # Arguments
+    /// * `schema` - ROS message schema
     pub fn decode(&mut self, schema: &MessageSchema) -> RosPeekResult<serde_json::Value> {
         let mut object = serde_json::Map::new();
 

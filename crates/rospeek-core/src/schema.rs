@@ -4,7 +4,7 @@ use regex::Regex;
 
 use crate::error::{RosPeekError, RosPeekResult};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MessageSchema {
     /// Name of ROS message type, such ash `foo_msgs/msg/Foo`.
     pub type_name: String,
@@ -33,7 +33,7 @@ impl TryFrom<&str> for MessageSchema {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MessageField {
     /// Name of field.
     pub name: String,
@@ -51,7 +51,7 @@ impl MessageField {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum FieldType {
     /// Primitive or nested structures, where `T`: (type_name)
     Object(String),

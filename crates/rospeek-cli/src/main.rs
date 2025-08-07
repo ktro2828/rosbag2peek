@@ -91,12 +91,13 @@ fn main() -> RosPeekResult<()> {
                 .ok_or_else(|| RosPeekError::TopicNotFound(topic.clone()))?;
 
             let schema = MessageSchema::try_from(topic_info.type_name.as_ref())?;
+            let mut decoder = CdrDecoder::from_schema(&schema);
 
             let messages = reader.read_messages(&topic)?;
-
             for (i, msg) in messages.iter().enumerate() {
                 println!("=== Message {} ===", i);
-                let value = CdrDecoder::new(&msg.data).decode(&schema)?;
+                // let value = CdrDecoder::new(&msg.data).decode(&schema)?;
+                let value = decoder.reset(&msg.data).decode(&schema)?;
                 println!("{:#?}", value);
             }
         }
