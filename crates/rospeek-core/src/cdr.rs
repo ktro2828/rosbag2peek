@@ -114,8 +114,8 @@ impl<'a> CdrDecoder<'a> {
         let pos = self.cursor.position() as usize;
         let padding = (align - (pos % align)) % align;
         if padding > 0 {
-            self.decode_bytes::<1>()?;
-            self.cursor.set_position((pos + padding) as u64);
+            let mut buf = vec![0u8; padding];
+            self.cursor.read_exact(&mut buf)?;
         }
         Ok(())
     }
