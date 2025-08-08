@@ -1,4 +1,7 @@
-use std::path::Path;
+use std::{
+    fmt::{Display, Formatter},
+    path::Path,
+};
 
 use crate::{RawMessage, RosPeekResult, Topic};
 
@@ -27,4 +30,10 @@ pub struct BagStats {
 #[derive(Debug)]
 pub enum StorageType {
     Sqlite3,
+}
+
+impl Display for StorageType {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }

@@ -52,7 +52,7 @@ fn main() -> RosPeekResult<()> {
 
             println!("File:             {}", stats.path);
             println!("Bag size:         {:.3} GiB", stats.size_bytes);
-            println!("Storage type:     {:?}", stats.storage_type);
+            println!("Storage type:     {}", stats.storage_type);
             println!("Duration:         {} s", stats.duration_sec);
             println!("Start:            {}", stats.start_time);
             println!("End:              {}", stats.end_time);
