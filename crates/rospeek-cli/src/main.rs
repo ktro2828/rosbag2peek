@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 use rospeek_core::{BagReader, RosPeekError, RosPeekResult, try_decode_json};
 use rospeek_db3::Db3Reader;
 use rospeek_gui::spawn_app;
+use rospeek_mcap::McapReader;
 use std::{collections::BTreeMap, fs::File, path::PathBuf};
 
 #[derive(Parser)]
@@ -49,8 +50,16 @@ fn main() -> RosPeekResult<()> {
 
     match cli.command {
         Commands::Info { bag } => {
-            // TODO(ktro2828): add support of McapReader
-            let reader: Box<dyn BagReader> = Box::new(Db3Reader::open(bag)?);
+            let reader: Box<dyn BagReader> = match bag.extension().and_then(|ext| ext.to_str()) {
+                Some("db3") => Box::new(Db3Reader::open(bag)?),
+                Some("mcap") => Box::new(McapReader::open(bag)?),
+                _ => {
+                    return Err(RosPeekError::UnsupportedFormat(format!(
+                        "Unsupported bag format: {}",
+                        bag.display()
+                    )));
+                }
+            };
 
             let stats = reader.stats();
 

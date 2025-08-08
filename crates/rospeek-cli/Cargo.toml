@@ -8,6 +8,7 @@ clap = { version = "4.5.42", features = ["derive"] }
 rospeek-core = { version = "0.1.0", path = "../rospeek-core" }
 rospeek-db3 = { version = "0.1.0", path = "../rospeek-db3" }
 rospeek-gui = { version = "0.1.0", path = "../rospeek-gui" }
+rospeek-mcap = { version = "0.1.0", path = "../rospeek-mcap" }
 serde_json = "1.0.142"
 
 [[bin]]
