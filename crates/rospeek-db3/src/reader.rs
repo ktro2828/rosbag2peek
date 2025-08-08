@@ -21,7 +21,11 @@ impl BagReader for Db3Reader {
         let mut statement = self
             .connection
             .prepare(
-                "SELECT id, name, type, serialization_format, offered_qos_profiles FROM topics",
+                r#"SELECT t.id, t.name, t.type, COUNT(m.id) AS message_count, t.serialization_format, t.offered_qos_profiles
+                        FROM topics t
+                        LEFT JOIN messages m ON t.id = m.topic_id
+                        GROUP BY t.id
+                        ORDER BY t.name"#,
             )
             .map_err(|e| RosPeekError::Other(format!("Prepare statement failed: {}", e)))?;
 
@@ -31,8 +35,9 @@ impl BagReader for Db3Reader {
                     id: row.get(0)?,
                     name: row.get(1)?,
                     type_name: row.get(2)?,
-                    serialization_format: row.get(3)?,
-                    offered_qos_profiles: row.get(4)?,
+                    count: row.get(3)?,
+                    serialization_format: row.get(4)?,
+                    offered_qos_profiles: row.get(5)?,
                 })
             })
             .map_err(|e| RosPeekError::Other(format!("Query failed: {}", e)))?;

@@ -60,14 +60,13 @@ fn main() -> RosPeekResult<()> {
                     .unwrap_or_else(|| "/".to_string());
                 grouped.entry(key).or_default().push(topic);
             }
-            println!("  Topic name  |  [Message type]  |  (Serialization format)");
             for (_, mut topics) in grouped {
                 // sort topics by topic name
                 topics.sort_by(|a, b| a.name.cmp(&b.name));
                 for topic in topics {
                     println!(
-                        "- {} [{}] ({})",
-                        topic.name, topic.type_name, topic.serialization_format
+                        "- Topic: {} | Type: {} | Count: {} | Serialization Format: {}",
+                        topic.name, topic.type_name, topic.count, topic.serialization_format
                     );
                 }
             }

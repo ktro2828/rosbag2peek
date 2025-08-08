@@ -3,6 +3,7 @@ pub struct Topic {
     pub id: i64,
     pub name: String,
     pub type_name: String,
+    pub count: i64,
     pub serialization_format: String,
     pub offered_qos_profiles: Option<String>,
 }
