@@ -8,10 +8,10 @@ A crate for the command line interface for `rospeek`.
 cargo install --path crates/rospeek-cli
 ```
 
-### List Topics
+### Show File Information and List Topics
 
 ```shell
-rospeek list <BAG_FILE>
+rospeek info <BAG_FILE>
 ```
 
 ```shell

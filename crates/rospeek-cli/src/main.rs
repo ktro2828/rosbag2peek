@@ -12,8 +12,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// List all topics in the bag file
-    List {
+    /// Show bag file information and list all topics in the bag file
+    Info {
         #[arg(value_name = "BAGFILE", help = "Path to the .db3 bag file")]
         bag: PathBuf,
     },
@@ -44,9 +44,19 @@ fn main() -> RosPeekResult<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::List { bag } => {
+        Commands::Info { bag } => {
             // TODO(ktro2828): add support of McapReader
             let reader: Box<dyn BagReader> = Box::new(Db3Reader::open(bag)?);
+
+            let stats = reader.stats();
+
+            println!("File:             {}", stats.path);
+            println!("Bag size:         {:.3} GiB", stats.size_bytes);
+            println!("Storage type:     {:?}", stats.storage_type);
+            println!("Duration:         {} s", stats.duration_sec);
+            println!("Start:            {}", stats.start_time);
+            println!("End:              {}", stats.end_time);
+            println!("Topic Information:");
 
             // group topics by namespace
             let mut grouped: BTreeMap<String, Vec<_>> = BTreeMap::new();
@@ -65,7 +75,7 @@ fn main() -> RosPeekResult<()> {
                 topics.sort_by(|a, b| a.name.cmp(&b.name));
                 for topic in topics {
                     println!(
-                        "- Topic: {} | Type: {} | Count: {} | Serialization Format: {}",
+                        "   - Topic: {} | Type: {} | Count: {} | Serialization Format: {}",
                         topic.name, topic.type_name, topic.count, topic.serialization_format
                     );
                 }

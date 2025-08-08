@@ -1,10 +1,15 @@
-use std::path::Path;
+use std::{fs::metadata, path::Path};
 
-use rospeek_core::{BagReader, RawMessage, RosPeekError, RosPeekResult, Topic};
+use chrono::DateTime;
+use rospeek_core::{
+    BagReader, RawMessage, RosPeekError, RosPeekResult, Topic,
+    reader::{BagStats, StorageType},
+};
 use rusqlite::Connection;
 
 pub struct Db3Reader {
     connection: rusqlite::Connection,
+    stats: BagStats,
 }
 
 impl BagReader for Db3Reader {
@@ -12,9 +17,46 @@ impl BagReader for Db3Reader {
     where
         Self: Sized,
     {
-        let connection = Connection::open(path)
+        let connection = Connection::open(path.as_ref())
             .map_err(|e| RosPeekError::Other(format!("SQLite open error: {}", e)))?;
-        Ok(Self { connection })
+
+        let (start_ns, end_ns) = connection
+            .query_row(
+                "SELECT COALESCE(MIN(timestamp), 0), COALESCE(MAX(timestamp), 0) FROM messages",
+                [],
+                |r| {
+                    let start_ns: i64 = r.get(0)?;
+                    let end_ns: i64 = r.get(1)?;
+                    Ok((start_ns, end_ns))
+                },
+            )
+            .map_err(|e| RosPeekError::Other(format!("Prepare statement failed: {}", e)))?;
+        let duration_sec = (end_ns - start_ns) as f64 / 1_000_000_000.0;
+
+        let size_bytes = metadata(path.as_ref()).map(|m| m.len()).unwrap_or(0) as f64
+            / (1024.0 * 1024.0 * 1024.0); // GB
+
+        let ns_to_iso = |ns: i64| -> String {
+            let secs = ns / 1_000_000_000;
+            let nsecs = (ns % 1_000_000_000) as u32;
+            let date = DateTime::from_timestamp(secs, nsecs).unwrap();
+            date.format("%Y-%m-%d %H:%M:%S.%f").to_string()
+        };
+
+        let stats = BagStats {
+            path: path.as_ref().display().to_string(),
+            size_bytes,
+            storage_type: StorageType::Sqlite3,
+            duration_sec,
+            start_time: ns_to_iso(start_ns),
+            end_time: ns_to_iso(end_ns),
+        };
+
+        Ok(Self { connection, stats })
+    }
+
+    fn stats(&self) -> &BagStats {
+        &self.stats
     }
 
     fn topics(&self) -> RosPeekResult<Vec<rospeek_core::Topic>> {
