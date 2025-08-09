@@ -1,10 +1,10 @@
-use std::{fs::File, path::Path};
+use std::{fs::File, i64, path::Path};
 
 use mcap::MessageStream;
 use memmap2::Mmap;
 use rospeek_core::{
-    BagReader, RawMessage, RosPeekError, RosPeekResult, Topic,
-    reader::{BagStats, StorageType},
+    BagReader, BagStats, RawMessage, RosPeekError, RosPeekResult, StorageType, Topic, ns_to_iso,
+    size_gb, to_duration_sec,
 };
 
 pub struct McapReader {
@@ -18,13 +18,16 @@ impl BagReader for McapReader {
         let mmap = unsafe { Mmap::map(&fd) }?;
 
         // TODO(kto2828): Implement stats calculation
+        let start_ns = i64::MAX;
+        let end_ns = i64::MIN;
+
         let stats = BagStats {
             path: path.as_ref().display().to_string(),
-            size_bytes: 0.0,
+            size_bytes: size_gb(path),
             storage_type: StorageType::Mcap,
-            duration_sec: 0.0,
-            start_time: "".to_string(),
-            end_time: "".to_string(),
+            duration_sec: to_duration_sec(start_ns, end_ns),
+            start_time: ns_to_iso(start_ns),
+            end_time: ns_to_iso(end_ns),
         };
 
         Ok(Self { mmap, stats })
