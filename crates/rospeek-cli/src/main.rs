@@ -108,7 +108,6 @@ fn main() -> RosPeekResult<()> {
             let messages = reader.read_messages(&topic)?;
             let mut results = Vec::new();
             for (_, msg) in messages.iter().enumerate() {
-                // let value = CdrDecoder::new(&msg.data).decode(&schema)?;
                 let value = decoder.reset(&msg.data).decode(&schema)?;
                 results.push(value);
             }
