@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
-use rospeek_core::{BagReader, CdrDecoder, MessageSchema, RosPeekError, RosPeekResult};
+use rospeek_core::{BagReader, RosPeekError, RosPeekResult, try_decode_json};
 use rospeek_db3::Db3Reader;
+use rospeek_gui::spawn_app;
 use std::{collections::BTreeMap, fs::File, path::PathBuf};
 
 #[derive(Parser)]
@@ -38,6 +39,9 @@ enum Commands {
         #[arg(short, long, help = "Topic name to decode (e.g. /tf)")]
         topic: String,
     },
+
+    /// Spawn GUI application
+    App,
 }
 
 fn main() -> RosPeekResult<()> {
@@ -95,22 +99,7 @@ fn main() -> RosPeekResult<()> {
             println!(">> Start decoding: {}", topic);
             // TODO(ktro2828): add support of McapReader
             let reader: Box<dyn BagReader> = Box::new(Db3Reader::open(bag)?);
-
-            let topic_info = reader
-                .topics()?
-                .into_iter()
-                .find(|t| t.name == topic)
-                .ok_or_else(|| RosPeekError::TopicNotFound(topic.clone()))?;
-
-            let schema = MessageSchema::try_from(topic_info.type_name.as_ref())?;
-            let mut decoder = CdrDecoder::from_schema(&schema);
-
-            let messages = reader.read_messages(&topic)?;
-            let mut results = Vec::new();
-            for (_, msg) in messages.iter().enumerate() {
-                let value = decoder.reset(&msg.data).decode(&schema)?;
-                results.push(value);
-            }
+            let results = try_decode_json(reader, &topic)?;
             println!("✨Finish decoding all messages");
             println!(">> Start saving results as JSON");
             let filename = topic.trim_start_matches('/').replace('/', ".") + ".json";
@@ -119,6 +108,7 @@ fn main() -> RosPeekResult<()> {
                 .map_err(|_| RosPeekError::Other("Failed to write JSON".to_string()))?;
             println!("✨Success to save JSON to: {}", filename);
         }
+        Commands::App => spawn_app().map_err(|e| RosPeekError::Other(format!("{e}")))?,
     }
 
     Ok(())

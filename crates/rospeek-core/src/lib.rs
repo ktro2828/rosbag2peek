@@ -5,7 +5,7 @@ pub mod reader;
 pub mod schema;
 
 pub use cdr::*;
-pub use error::{RosPeekError, RosPeekResult};
-pub use model::{RawMessage, Topic};
-pub use reader::BagReader;
+pub use error::*;
+pub use model::*;
+pub use reader::*;
 pub use schema::*;

@@ -2,5 +2,6 @@
 members = [
     "crates/rospeek-cli",
     "crates/rospeek-core",
-    "crates/rospeek-db3"
+    "crates/rospeek-db3",
+    "crates/rospeek-gui",
 ]
