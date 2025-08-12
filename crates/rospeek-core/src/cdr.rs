@@ -4,6 +4,7 @@ use std::{
     sync::Arc,
 };
 
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde_json::json;
 
 use crate::{
@@ -265,6 +266,14 @@ impl<'a> CdrDecoder<'a> {
     }
 }
 
+/// Decodes messages for a given topic into JSON parallel.
+///
+/// # Arguments
+/// * `reader` - The bag reader to read messages from.
+/// * `topic` - The topic to decode messages for.
+///
+/// # Returns
+/// A vector of JSON values representing the decoded messages.
 pub fn try_decode_json(
     reader: Box<dyn BagReader>,
     topic: &str,
@@ -275,16 +284,19 @@ pub fn try_decode_json(
         .find(|t| t.name == topic)
         .ok_or_else(|| RosPeekError::TopicNotFound(topic.to_string()))?;
 
-    let schema = MessageSchema::try_from(topic_info.type_name.as_ref())?;
-    let mut decoder = CdrDecoder::from_schema(&schema);
+    let schema = Arc::new(MessageSchema::try_from(topic_info.type_name.as_ref())?);
 
-    let results = reader
-        .read_messages(topic)?
-        .iter()
-        .map(|msg| decoder.reset(&msg.data).decode(&schema).unwrap_or_default())
-        .collect::<Vec<_>>();
+    let messages = reader.read_messages(topic)?;
 
-    Ok(results)
+    let values = messages
+        .par_iter()
+        .map_init(
+            || CdrDecoder::from_schema(&schema),
+            |decoder, msg| decoder.reset(&msg.data).decode(&schema),
+        )
+        .collect::<RosPeekResult<Vec<_>>>()?;
+
+    Ok(values)
 }
 
 pub fn try_decode_binary<'a>(
