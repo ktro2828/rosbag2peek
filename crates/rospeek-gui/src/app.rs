@@ -25,7 +25,7 @@ enum Event {
 #[derive(Debug, PartialEq, Eq)]
 enum ViewMode {
     Auto,
-    Hex,
+    Bytes,
     Json,
 }
 
@@ -176,12 +176,12 @@ impl<B: Backend + 'static> RospeekApp<B> {
             egui::ComboBox::from_label("View Mode")
                 .selected_text(match self.view_mode {
                     ViewMode::Auto => "Auto",
-                    ViewMode::Hex => "Hex",
+                    ViewMode::Bytes => "Bytes",
                     ViewMode::Json => "Json",
                 })
                 .show_ui(ui, |ui| {
                     ui.selectable_value(&mut self.view_mode, ViewMode::Auto, "Auto");
-                    ui.selectable_value(&mut self.view_mode, ViewMode::Hex, "Hex");
+                    ui.selectable_value(&mut self.view_mode, ViewMode::Bytes, "Bytes");
                     ui.selectable_value(&mut self.view_mode, ViewMode::Json, "Json");
                 });
         });
@@ -220,7 +220,7 @@ impl<B: Backend + 'static> RospeekApp<B> {
 
     fn display_message<'a>(&self, decoder: &mut CdrDecoder<'a>, msg: &'a RawMessage) -> String {
         match self.view_mode {
-            ViewMode::Hex => dump_hex(&msg.data, 64),
+            ViewMode::Bytes => dump_bytes(&msg.data, 64),
             _ => self.current_schema.as_ref().map_or_else(
                 || "Failed to decode binary: no schema".to_string(),
                 |schema| {
@@ -296,28 +296,39 @@ impl<B: Backend + 'static> eframe::App for RospeekApp<B> {
     }
 }
 
+/// Converts a string to rich text with a gray color.
 fn to_rich_text(s: &str) -> egui::RichText {
     RichText::new(s).color(egui::Color32::from_gray(150))
 }
 
-fn dump_hex(bytes: &[u8], max_line: usize) -> String {
+/// Converts bytes to string representation.
+fn dump_bytes(bytes: &[u8], max_line: usize) -> String {
     const CHUNK_SIZE: usize = 16;
     let mut out = String::new();
     for (line_idx, chunk) in bytes.chunks(CHUNK_SIZE).enumerate() {
         if line_idx >= max_line {
-            out.push_str("...\n");
+            out.push_str("...");
             break;
         }
 
+        // offset
         out.push_str(&format!("{:08x}: ", line_idx * CHUNK_SIZE));
+
+        // hex (push separator per 4-bytes)
         for i in 0..CHUNK_SIZE {
+            if i > 0 && i % 4 == 0 {
+                out.push_str("| ");
+            }
+
             if let Some(byte) = chunk.get(i) {
                 out.push_str(&format!("{:02x} ", byte));
             } else {
                 out.push_str("   ");
             }
         }
-        out.push(' ');
+
+        // ascii
+        out.push_str(" ");
         for b in chunk {
             let c = if b.is_ascii_graphic() {
                 *b as char
