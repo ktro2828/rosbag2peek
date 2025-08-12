@@ -1,8 +1,8 @@
 use crossbeam_channel as channel;
-use egui::RichText;
+use egui::{RichText, collapsing_header::CollapsingState};
 use rfd::FileDialog;
 use rospeek_core::{CdrDecoder, MessageSchema, RawMessage, Topic, ns_to_iso, try_decode_binary};
-use std::{path::PathBuf, sync::Arc};
+use std::{f32, path::PathBuf, sync::Arc};
 
 use crate::backend::Backend;
 
@@ -25,7 +25,7 @@ enum Event {
 #[derive(Debug, PartialEq, Eq)]
 enum ViewMode {
     Auto,
-    Hex,
+    Bytes,
     Json,
 }
 
@@ -176,12 +176,12 @@ impl<B: Backend + 'static> RospeekApp<B> {
             egui::ComboBox::from_label("View Mode")
                 .selected_text(match self.view_mode {
                     ViewMode::Auto => "Auto",
-                    ViewMode::Hex => "Hex",
+                    ViewMode::Bytes => "Bytes",
                     ViewMode::Json => "Json",
                 })
                 .show_ui(ui, |ui| {
                     ui.selectable_value(&mut self.view_mode, ViewMode::Auto, "Auto");
-                    ui.selectable_value(&mut self.view_mode, ViewMode::Hex, "Hex");
+                    ui.selectable_value(&mut self.view_mode, ViewMode::Bytes, "Bytes");
                     ui.selectable_value(&mut self.view_mode, ViewMode::Json, "Json");
                 });
         });
@@ -192,17 +192,25 @@ impl<B: Backend + 'static> RospeekApp<B> {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 let mut decoder = CdrDecoder::from_schema(&schema);
                 for (idx, msg) in self.page.iter().enumerate() {
-                    let body = self.display_message(&mut decoder, msg);
-                    ui.collapsing(
-                        format!(
-                            "[#{idx}] @{} ({} bytes)",
-                            ns_to_iso(msg.timestamp),
-                            msg.data.len(),
-                        ),
-                        |ui| {
-                            ui.monospace(to_rich_text(&body));
-                        },
-                    );
+                    let id = ui.make_persistent_id(("msg_row", msg.topic_id, msg.timestamp, idx));
+                    let header = CollapsingState::load_with_default_open(ui.ctx(), id, false)
+                        .show_header(ui, |ui| {
+                            ui.label(format!(
+                                "[#{idx}] @{} ({} bytes)",
+                                ns_to_iso(msg.timestamp),
+                                msg.data.len()
+                            ))
+                        });
+
+                    // display decoded message if the header is unindented
+                    header.body_unindented(|ui| {
+                        let mut body = self.display_message(&mut decoder, msg);
+                        egui::TextEdit::multiline(&mut body)
+                            .code_editor()
+                            .interactive(false)
+                            .desired_width(f32::INFINITY)
+                            .show(ui);
+                    });
                 }
             });
         } else {
@@ -212,7 +220,7 @@ impl<B: Backend + 'static> RospeekApp<B> {
 
     fn display_message<'a>(&self, decoder: &mut CdrDecoder<'a>, msg: &'a RawMessage) -> String {
         match self.view_mode {
-            ViewMode::Hex => dump_hex(&msg.data, 64),
+            ViewMode::Bytes => dump_bytes(&msg.data, 64),
             _ => self.current_schema.as_ref().map_or_else(
                 || "Failed to decode binary: no schema".to_string(),
                 |schema| {
@@ -288,28 +296,39 @@ impl<B: Backend + 'static> eframe::App for RospeekApp<B> {
     }
 }
 
+/// Converts a string to rich text with a gray color.
 fn to_rich_text(s: &str) -> egui::RichText {
     RichText::new(s).color(egui::Color32::from_gray(150))
 }
 
-fn dump_hex(bytes: &[u8], max_line: usize) -> String {
+/// Converts bytes to string representation.
+fn dump_bytes(bytes: &[u8], max_line: usize) -> String {
     const CHUNK_SIZE: usize = 16;
     let mut out = String::new();
     for (line_idx, chunk) in bytes.chunks(CHUNK_SIZE).enumerate() {
         if line_idx >= max_line {
-            out.push_str("...\n");
+            out.push_str("...");
             break;
         }
 
+        // offset
         out.push_str(&format!("{:08x}: ", line_idx * CHUNK_SIZE));
+
+        // hex (push separator per 4-bytes)
         for i in 0..CHUNK_SIZE {
+            if i > 0 && i % 4 == 0 {
+                out.push_str("| ");
+            }
+
             if let Some(byte) = chunk.get(i) {
                 out.push_str(&format!("{:02x} ", byte));
             } else {
                 out.push_str("   ");
             }
         }
-        out.push(' ');
+
+        // ascii
+        out.push_str(" ");
         for b in chunk {
             let c = if b.is_ascii_graphic() {
                 *b as char
