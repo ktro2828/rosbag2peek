@@ -7,7 +7,7 @@ use std::{
 use serde_json::json;
 
 use crate::{
-    FieldType, MessageField, MessageSchema,
+    BagReader, FieldType, MessageField, MessageSchema,
     error::{RosPeekError, RosPeekResult},
 };
 
@@ -263,4 +263,37 @@ impl<'a> CdrDecoder<'a> {
         }
         String::from_utf8(buf).map_err(|e| RosPeekError::InvalidUtf8(e))
     }
+}
+
+pub fn try_decode_json(
+    reader: Box<dyn BagReader>,
+    topic: &str,
+) -> RosPeekResult<Vec<serde_json::Value>> {
+    let topic_info = reader
+        .topics()?
+        .into_iter()
+        .find(|t| t.name == topic)
+        .ok_or_else(|| RosPeekError::TopicNotFound(topic.to_string()))?;
+
+    let schema = MessageSchema::try_from(topic_info.type_name.as_ref())?;
+    let mut decoder = CdrDecoder::from_schema(&schema);
+
+    let results = reader
+        .read_messages(topic)?
+        .iter()
+        .map(|msg| decoder.reset(&msg.data).decode(&schema).unwrap_or_default())
+        .collect::<Vec<_>>();
+
+    Ok(results)
+}
+
+pub fn try_decode_binary<'a>(
+    decoder: &mut CdrDecoder<'a>,
+    schema: &MessageSchema,
+    data: &'a [u8],
+) -> RosPeekResult<String> {
+    let value = decoder.reset(data).decode(schema)?;
+
+    serde_json::to_string_pretty(&value)
+        .map_err(|e| RosPeekError::Other(format!("Failed to format JSON: {}", e)))
 }

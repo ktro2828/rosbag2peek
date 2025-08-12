@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Topic {
     pub id: i64,
     pub name: String,
@@ -8,7 +8,7 @@ pub struct Topic {
     pub offered_qos_profiles: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RawMessage {
     /// UNIX epoch nanoseconds
     pub timestamp: i64,

@@ -1,9 +1,9 @@
-use std::{fs::metadata, path::Path};
+use std::path::Path;
 
-use chrono::DateTime;
 use rospeek_core::{
-    BagReader, RawMessage, RosPeekError, RosPeekResult, Topic,
+    BagReader, RawMessage, RosPeekError, RosPeekResult, Topic, ns_to_iso,
     reader::{BagStats, StorageType},
+    size_gb, to_duration_sec,
 };
 use rusqlite::Connection;
 
@@ -31,23 +31,12 @@ impl BagReader for Db3Reader {
                 },
             )
             .map_err(|e| RosPeekError::Other(format!("Prepare statement failed: {}", e)))?;
-        let duration_sec = (end_ns - start_ns) as f64 / 1_000_000_000.0;
-
-        let size_bytes = metadata(path.as_ref()).map(|m| m.len()).unwrap_or(0) as f64
-            / (1024.0 * 1024.0 * 1024.0); // GB
-
-        let ns_to_iso = |ns: i64| -> String {
-            let secs = ns / 1_000_000_000;
-            let nsecs = (ns % 1_000_000_000) as u32;
-            let date = DateTime::from_timestamp(secs, nsecs).unwrap();
-            date.format("%Y-%m-%d %H:%M:%S.%f").to_string()
-        };
 
         let stats = BagStats {
             path: path.as_ref().display().to_string(),
-            size_bytes,
+            size_bytes: size_gb(path.as_ref()),
             storage_type: StorageType::Sqlite3,
-            duration_sec,
+            duration_sec: to_duration_sec(start_ns, end_ns),
             start_time: ns_to_iso(start_ns),
             end_time: ns_to_iso(end_ns),
         };
