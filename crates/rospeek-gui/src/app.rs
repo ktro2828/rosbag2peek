@@ -1,8 +1,8 @@
 use crossbeam_channel as channel;
-use egui::RichText;
+use egui::{RichText, collapsing_header::CollapsingState};
 use rfd::FileDialog;
 use rospeek_core::{CdrDecoder, MessageSchema, RawMessage, Topic, ns_to_iso, try_decode_binary};
-use std::{path::PathBuf, sync::Arc};
+use std::{f32, path::PathBuf, sync::Arc};
 
 use crate::backend::Backend;
 
@@ -192,17 +192,25 @@ impl<B: Backend + 'static> RospeekApp<B> {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 let mut decoder = CdrDecoder::from_schema(&schema);
                 for (idx, msg) in self.page.iter().enumerate() {
-                    let body = self.display_message(&mut decoder, msg);
-                    ui.collapsing(
-                        format!(
-                            "[#{idx}] @{} ({} bytes)",
-                            ns_to_iso(msg.timestamp),
-                            msg.data.len(),
-                        ),
-                        |ui| {
-                            ui.monospace(to_rich_text(&body));
-                        },
-                    );
+                    let id = ui.make_persistent_id(("msg_row", msg.topic_id, msg.timestamp, idx));
+                    let header = CollapsingState::load_with_default_open(ui.ctx(), id, false)
+                        .show_header(ui, |ui| {
+                            ui.label(format!(
+                                "[#{idx}] @{} ({} bytes)",
+                                ns_to_iso(msg.timestamp),
+                                msg.data.len()
+                            ))
+                        });
+
+                    // display decoded message if the header is unindented
+                    header.body_unindented(|ui| {
+                        let mut body = self.display_message(&mut decoder, msg);
+                        egui::TextEdit::multiline(&mut body)
+                            .code_editor()
+                            .interactive(false)
+                            .desired_width(f32::INFINITY)
+                            .show(ui);
+                    });
                 }
             });
         } else {
