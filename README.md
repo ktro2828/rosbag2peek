@@ -40,3 +40,9 @@ rospeek show <BAG_FILE> -t <TOPIC_NAME>
 ```shell
 rospeek decode <BAG_FILE> -t <TOPIC_NAME>
 ```
+
+#### Spawn GUI
+
+```shell
+rospeek app
+```
