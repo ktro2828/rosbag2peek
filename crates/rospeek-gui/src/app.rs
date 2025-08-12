@@ -29,7 +29,7 @@ enum ViewMode {
     Json,
 }
 
-pub struct RospeekApp<B: Backend + 'static> {
+pub struct App<B: Backend + 'static> {
     backend: Option<Arc<B>>,
     bag_path: Option<PathBuf>,
     topics: Vec<Topic>,
@@ -44,7 +44,7 @@ pub struct RospeekApp<B: Backend + 'static> {
     rx: channel::Receiver<Event>,
 }
 
-impl<B: Backend + 'static> RospeekApp<B> {
+impl<B: Backend + 'static> App<B> {
     pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         let (txc, rxc) = channel::unbounded::<Command>();
         let (txe, rxe) = channel::unbounded::<Event>();
@@ -245,7 +245,7 @@ impl<B: Backend + 'static> RospeekApp<B> {
     }
 }
 
-impl<B: Backend + 'static> eframe::App for RospeekApp<B> {
+impl<B: Backend + 'static> eframe::App for App<B> {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         while let Ok(ev) = self.rx.try_recv() {
             match ev {
