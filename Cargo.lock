@@ -2648,6 +2648,7 @@ dependencies = [
  "rfd",
  "rospeek-core",
  "rospeek-db3",
+ "rospeek-mcap",
 ]
 
 [[package]]

@@ -10,3 +10,4 @@ egui = "0.32.0"
 rfd = "0.15.4"
 rospeek-core = { version = "0.1.0", path = "../rospeek-core" }
 rospeek-db3 = { version = "0.1.0", path = "../rospeek-db3" }
+rospeek-mcap = { version = "0.1.0", path = "../rospeek-mcap" }
