@@ -4,6 +4,8 @@ use backend::ReaderBackend;
 pub mod app;
 pub mod backend;
 
+pub use backend::create_reader;
+
 pub fn spawn_app() -> eframe::Result<()> {
     let native_options = eframe::NativeOptions {
         renderer: eframe::Renderer::Glow,

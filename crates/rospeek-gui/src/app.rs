@@ -75,7 +75,7 @@ impl<B: Backend + 'static> App<B> {
     /// Open a ROS 2 bag file.
     fn open(&mut self) {
         if let Some(path) = FileDialog::new()
-            .add_filter("ROS 2 bag", &["db3"])
+            .add_filter("ROS 2 bag", &["db3", "mcap"])
             .pick_file()
         {
             match B::open(&path) {

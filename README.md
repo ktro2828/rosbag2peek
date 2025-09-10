@@ -5,7 +5,7 @@
 ## Features
 
 - Cross-platform -- Works on Linux, macOS, and Windows
-- Format support -- ROS 2 `.db3`
+- Format support -- ROS 2 `.db3`, `.mcap`
 
 ## Quick Start
 

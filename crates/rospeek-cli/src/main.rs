@@ -1,7 +1,6 @@
 use clap::{Parser, Subcommand};
-use rospeek_core::{BagReader, RosPeekError, RosPeekResult, try_decode_json};
-use rospeek_db3::Db3Reader;
-use rospeek_gui::spawn_app;
+use rospeek_core::{RosPeekError, RosPeekResult, try_decode_json};
+use rospeek_gui::{create_reader, spawn_app};
 use std::{collections::BTreeMap, fs::File, path::PathBuf};
 
 #[derive(Parser)]
@@ -15,13 +14,13 @@ struct Cli {
 enum Commands {
     /// Show bag file information and list all topics in the bag file
     Info {
-        #[arg(value_name = "BAGFILE", help = "Path to the .db3 bag file")]
+        #[arg(value_name = "BAGFILE", help = "Path to the [.db3, .mcap] bag file")]
         bag: PathBuf,
     },
 
     /// Show the first N messages of a topic
     Show {
-        #[arg(value_name = "BAGFILE", help = "Path to the .db3 bag file")]
+        #[arg(value_name = "BAGFILE", help = "Path to the [.db3, .mcap] bag file")]
         bag: PathBuf,
 
         #[arg(short, long, help = "Topic name to read messages (e.g. /tf)")]
@@ -33,7 +32,7 @@ enum Commands {
 
     /// Decode CDR-encoded messages into JSON
     Decode {
-        #[arg(value_name = "BAGFILE", help = "Path to the .db3 bag file")]
+        #[arg(value_name = "BAGFILE", help = "Path to the [.db3, .mcap] bag file")]
         bag: PathBuf,
 
         #[arg(short, long, help = "Topic name to decode (e.g. /tf)")]
@@ -49,8 +48,7 @@ fn main() -> RosPeekResult<()> {
 
     match cli.command {
         Commands::Info { bag } => {
-            // TODO(ktro2828): add support of McapReader
-            let reader: Box<dyn BagReader> = Box::new(Db3Reader::open(bag)?);
+            let reader = create_reader(bag)?;
 
             let stats = reader.stats();
 
@@ -86,8 +84,7 @@ fn main() -> RosPeekResult<()> {
             }
         }
         Commands::Show { bag, topic, count } => {
-            // TODO(ktro2828): add support of McapReader
-            let reader: Box<dyn BagReader> = Box::new(Db3Reader::open(bag)?);
+            let reader = create_reader(bag)?;
 
             let messages = reader.read_messages(&topic)?;
             let n = count.unwrap_or(messages.len());
@@ -97,8 +94,7 @@ fn main() -> RosPeekResult<()> {
         }
         Commands::Decode { bag, topic } => {
             println!(">> Start decoding: {}", topic);
-            // TODO(ktro2828): add support of McapReader
-            let reader: Box<dyn BagReader> = Box::new(Db3Reader::open(bag)?);
+            let reader = create_reader(bag)?;
             let results = try_decode_json(reader, &topic)?;
             println!("✨Finish decoding all messages");
             println!(">> Start saving results as JSON");
