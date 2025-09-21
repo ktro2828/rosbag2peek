@@ -71,10 +71,7 @@ impl FieldType {
     }
 
     fn is_iterable(&self) -> bool {
-        match self {
-            FieldType::Object(_) => false,
-            _ => true,
-        }
+        !matches!(self, FieldType::Object(_))
     }
 }
 
