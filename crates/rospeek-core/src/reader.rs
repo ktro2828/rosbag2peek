@@ -60,8 +60,8 @@ pub fn size_gb<P: AsRef<Path>>(path: P) -> f64 {
 ///
 /// assert_eq!(ns_to_iso(1630456800000000000), "2021-09-01 00:40:00");
 /// ```
-pub fn ns_to_iso(ns: i64) -> String {
-    let secs = ns / 1_000_000_000;
+pub fn ns_to_iso(ns: u64) -> String {
+    let secs = (ns / 1_000_000_000) as i64;
     let nsecs = (ns % 1_000_000_000) as u32;
     let date = DateTime::from_timestamp(secs, nsecs).unwrap();
     date.format("%Y-%m-%d %H:%M:%S").to_string()
@@ -79,7 +79,7 @@ pub fn ns_to_iso(ns: i64) -> String {
 ///
 /// assert_eq!(to_duration_sec(1630456800000000000, 1630456860000000000), 60.0);
 /// ```
-pub fn to_duration_sec(start_ns: i64, end_ns: i64) -> f64 {
+pub fn to_duration_sec(start_ns: u64, end_ns: u64) -> f64 {
     if end_ns > start_ns {
         (end_ns - start_ns) as f64 / 1_000_000_000.0
     } else {
