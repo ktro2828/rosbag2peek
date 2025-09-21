@@ -13,7 +13,7 @@ pub struct McapReader {
 }
 
 impl McapReader {
-    fn into_stream(&self) -> RosPeekResult<MessageStream<'_>> {
+    fn as_stream(&self) -> RosPeekResult<MessageStream<'_>> {
         MessageStream::new(&self.mmap)
             .map_err(|e| RosPeekError::Other(format!("Failed to create message stream: {}", e)))
     }
@@ -64,7 +64,7 @@ impl BagReader for McapReader {
     fn topics(&self) -> RosPeekResult<Vec<Topic>> {
         use std::collections::HashMap;
 
-        let stream = self.into_stream()?;
+        let stream = self.as_stream()?;
 
         let topic_map: Result<HashMap<String, Topic>, RosPeekError> = stream
             .map(|message_result| {
@@ -101,9 +101,9 @@ impl BagReader for McapReader {
     }
 
     fn read_messages(&self, topic_name: &str) -> RosPeekResult<Vec<RawMessage>> {
-        let stream = self.into_stream()?;
+        let stream = self.as_stream()?;
 
-        let raw_messages = stream
+        stream
             .map(|message_result| {
                 message_result
                     .map_err(|_| RosPeekError::Other("Failed to read message".to_string()))
@@ -117,8 +117,6 @@ impl BagReader for McapReader {
                 Ok(_) => None,          // Skip messages from other topics
                 Err(e) => Some(Err(e)), // Propagate errors
             })
-            .collect::<RosPeekResult<Vec<RawMessage>>>();
-
-        raw_messages
+            .collect::<RosPeekResult<Vec<RawMessage>>>()
     }
 }

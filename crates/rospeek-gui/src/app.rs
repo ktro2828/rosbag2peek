@@ -190,7 +190,7 @@ impl<B: Backend + 'static> App<B> {
             ui.monospace(to_rich_text(&format!("Topic: {}", topic)).strong());
             ui.add_space(4.0);
             egui::ScrollArea::vertical().show(ui, |ui| {
-                let mut decoder = CdrDecoder::from_schema(&schema);
+                let mut decoder = CdrDecoder::from_schema(schema);
                 for (idx, msg) in self.page.iter().enumerate() {
                     let id = ui.make_persistent_id(("msg_row", msg.topic_id, msg.timestamp, idx));
                     let header = CollapsingState::load_with_default_open(ui.ctx(), id, false)
@@ -328,7 +328,7 @@ fn dump_bytes(bytes: &[u8], max_line: usize) -> String {
         }
 
         // ascii
-        out.push_str(" ");
+        out.push(' ');
         for b in chunk {
             let c = if b.is_ascii_graphic() {
                 *b as char
