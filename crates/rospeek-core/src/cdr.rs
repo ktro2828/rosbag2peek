@@ -262,7 +262,7 @@ impl<'a> CdrDecoder<'a> {
         if buf.last() == Some(&0) {
             buf.pop(); // null terminator (optional in ROS 2)
         }
-        String::from_utf8(buf).map_err(|e| RosPeekError::InvalidUtf8(e))
+        String::from_utf8(buf).map_err(RosPeekError::InvalidUtf8)
     }
 }
 
