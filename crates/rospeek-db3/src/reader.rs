@@ -25,8 +25,8 @@ impl BagReader for Db3Reader {
                 "SELECT COALESCE(MIN(timestamp), 0), COALESCE(MAX(timestamp), 0) FROM messages",
                 [],
                 |r| {
-                    let start_ns: i64 = r.get(0)?;
-                    let end_ns: i64 = r.get(1)?;
+                    let start_ns: u64 = r.get(0)?;
+                    let end_ns: u64 = r.get(1)?;
                     Ok((start_ns, end_ns))
                 },
             )

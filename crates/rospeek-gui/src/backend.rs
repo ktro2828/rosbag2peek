@@ -14,7 +14,7 @@ pub trait Backend: Send + Sync {
     fn read_messages(
         &self,
         topic: &str,
-        start_ns: Option<i64>,
+        start_ns: Option<u64>,
         limit: usize,
     ) -> RosPeekResult<Vec<RawMessage>>;
 }
@@ -42,7 +42,7 @@ impl Backend for ReaderBackend {
     fn read_messages(
         &self,
         topic: &str,
-        start_ns: Option<i64>,
+        start_ns: Option<u64>,
         limit: usize,
     ) -> RosPeekResult<Vec<RawMessage>> {
         let mut messages = self.inner.lock().unwrap().read_messages(topic)?;

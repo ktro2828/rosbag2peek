@@ -1,4 +1,4 @@
-use std::{fs::File, i64, path::Path};
+use std::{fs::File, path::Path};
 
 use mcap::MessageStream;
 use memmap2::Mmap;
@@ -25,8 +25,8 @@ impl BagReader for McapReader {
         let mmap = unsafe { Mmap::map(&fd) }?;
 
         // TODO(kto2828): Implement stats calculation
-        let mut start_ns = i64::MAX;
-        let mut end_ns = i64::MIN;
+        let mut start_ns = u64::MAX;
+        let mut end_ns = u64::MIN;
 
         let stream = MessageStream::new(&mmap)
             .map_err(|e| RosPeekError::Other(format!("Failed to create message stream: {}", e)))?;
@@ -35,7 +35,7 @@ impl BagReader for McapReader {
             let message = message_result
                 .map_err(|e| RosPeekError::Other(format!("Failed to read message: {}", e)))?;
 
-            let log_time = message.log_time as i64;
+            let log_time = message.log_time;
 
             if log_time < start_ns {
                 start_ns = log_time;
@@ -80,7 +80,7 @@ impl BagReader for McapReader {
                     acc.entry(topic_name.clone())
                         .and_modify(|topic| topic.count += 1)
                         .or_insert_with(|| Topic {
-                            id: message.channel.id as i64,
+                            id: message.channel.id,
                             name: topic_name,
                             type_name: message
                                 .channel
@@ -110,8 +110,8 @@ impl BagReader for McapReader {
             })
             .filter_map(|message_result| match message_result {
                 Ok(message) if message.channel.topic == topic_name => Some(Ok(RawMessage {
-                    timestamp: message.publish_time as i64,
-                    topic_id: message.channel.id as i64,
+                    timestamp: message.publish_time,
+                    topic_id: message.channel.id,
                     data: message.data.into(),
                 })),
                 Ok(_) => None,          // Skip messages from other topics

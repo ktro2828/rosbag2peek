@@ -1,9 +1,9 @@
 #[derive(Debug, Clone)]
 pub struct Topic {
-    pub id: i64,
+    pub id: u16,
     pub name: String,
     pub type_name: String,
-    pub count: i64,
+    pub count: u64,
     pub serialization_format: String,
     pub offered_qos_profiles: Option<String>,
 }
@@ -11,9 +11,9 @@ pub struct Topic {
 #[derive(Debug, Clone)]
 pub struct RawMessage {
     /// UNIX epoch nanoseconds
-    pub timestamp: i64,
+    pub timestamp: u64,
     /// Topic ID
-    pub topic_id: i64,
+    pub topic_id: u16,
     /// CDR-encoded message
     pub data: Vec<u8>,
 }
