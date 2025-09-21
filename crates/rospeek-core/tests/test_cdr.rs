@@ -28,7 +28,7 @@ fn test_decode_time() {
     let mut decoder = CdrDecoder::new(&data);
     let result = decoder
         .decode(&schema)
-        .expect(format!("Failed to decode {type_name}").as_ref());
+        .unwrap_or_else(|_| panic!("Failed to decode {type_name}"));
     assert_eq!(result["sec"], 722);
     assert_eq!(result["nanosec"], 5000);
 }
@@ -61,7 +61,7 @@ fn test_decode_duration() {
     let mut decoder = CdrDecoder::new(&data);
     let result = decoder
         .decode(&schema)
-        .expect(format!("Failed to decode {type_name}").as_ref());
+        .unwrap_or_else(|_| panic!("Failed to decode {type_name}"));
     assert_eq!(result["sec"], 722);
     assert_eq!(result["nanosec"], 5000);
 }
