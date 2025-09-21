@@ -66,8 +66,7 @@ fn main() -> RosPeekResult<()> {
                 let key = topic
                     .name
                     .split("/")
-                    .filter(|s| !s.is_empty())
-                    .next()
+                    .find(|s| !s.is_empty())
                     .map(|s| format!("/{}", s))
                     .unwrap_or_else(|| "/".to_string());
                 grouped.entry(key).or_default().push(topic);
