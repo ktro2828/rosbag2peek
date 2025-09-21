@@ -103,7 +103,7 @@ impl BagReader for McapReader {
     fn read_messages(&self, topic_name: &str) -> RosPeekResult<Vec<RawMessage>> {
         let stream = self.as_stream()?;
 
-        let raw_messages = stream
+        stream
             .map(|message_result| {
                 message_result
                     .map_err(|_| RosPeekError::Other("Failed to read message".to_string()))
@@ -117,8 +117,6 @@ impl BagReader for McapReader {
                 Ok(_) => None,          // Skip messages from other topics
                 Err(e) => Some(Err(e)), // Propagate errors
             })
-            .collect::<RosPeekResult<Vec<RawMessage>>>();
-
-        raw_messages
+            .collect::<RosPeekResult<Vec<RawMessage>>>()
     }
 }
