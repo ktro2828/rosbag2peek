@@ -328,7 +328,7 @@ fn dump_bytes(bytes: &[u8], max_line: usize) -> String {
         }
 
         // ascii
-        out.push_str(" ");
+        out.push(' ');
         for b in chunk {
             let c = if b.is_ascii_graphic() {
                 *b as char
