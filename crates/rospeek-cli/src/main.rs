@@ -30,8 +30,8 @@ enum Commands {
         count: Option<usize>,
     },
 
-    /// Decode CDR-encoded messages into JSON
-    Decode {
+    /// Decode CDR-encoded messages and dump them into JSON
+    Dump {
         #[arg(value_name = "BAGFILE", help = "Path to the [.db3, .mcap] bag file")]
         bag: PathBuf,
 
@@ -91,12 +91,12 @@ fn main() -> RosPeekResult<()> {
                 println!("[{}] t = {} ns, {} bytes", i, msg.timestamp, msg.data.len());
             }
         }
-        Commands::Decode { bag, topic } => {
+        Commands::Dump { bag, topic } => {
             println!(">> Start decoding: {}", topic);
             let reader = create_reader(bag)?;
             let results = try_decode_json(reader, &topic)?;
             println!("✨Finish decoding all messages");
-            println!(">> Start saving results as JSON");
+            println!(">> Start dumping results into JSON");
             let filename = topic.trim_start_matches('/').replace('/', ".") + ".json";
             let writer = File::create(&filename)?;
             serde_json::to_writer_pretty(writer, &results)
