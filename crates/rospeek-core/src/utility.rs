@@ -2,10 +2,6 @@ use serde_json::{Map, Value, json};
 
 use crate::RosPeekResult;
 
-pub fn json_values_to_string(json: &Vec<Value>) -> String {
-    serde_json::to_string_pretty(json).unwrap()
-}
-
 pub fn flatten_json(json: &Map<String, Value>) -> RosPeekResult<Map<String, Value>> {
     let mut output = Map::new();
     insert_object(&mut output, None, json);
