@@ -1,15 +1,16 @@
 use std::{
-    collections::HashMap,
+    collections::{BTreeSet, HashMap},
     io::{Cursor, Read},
     sync::Arc,
 };
 
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use serde_json::json;
+use serde_json::{Value, json};
 
 use crate::{
     BagReader, FieldType, MessageField, MessageSchema,
     error::{RosPeekError, RosPeekResult},
+    flatten_json,
 };
 
 #[derive(Debug)]
@@ -297,6 +298,37 @@ pub fn try_decode_json(
         .collect::<RosPeekResult<Vec<_>>>()?;
 
     Ok(values)
+}
+
+/// Decode a topic into a CSV format.
+///
+/// # Arguments
+/// * `reader` - The bag reader to read messages from.
+/// * `topic` - The topic to decode.
+///
+/// # Returns
+/// A tuple containing the column names and rows of the decoded CSV.
+pub fn try_decode_csv(
+    reader: Box<dyn BagReader>,
+    topic: &str,
+) -> RosPeekResult<(BTreeSet<String>, Vec<Vec<String>>)> {
+    let json_values = try_decode_json(reader, topic)?;
+
+    let mut columns = BTreeSet::new();
+    let mut rows = Vec::new();
+
+    for value in json_values {
+        if let Value::Object(object) = value {
+            let flatten = flatten_json(&object)?;
+            columns.extend(flatten.keys().cloned());
+            let row = columns
+                .iter()
+                .map(|col| flatten.get(col).map(|v| v.to_string()).unwrap_or_default())
+                .collect();
+            rows.push(row);
+        }
+    }
+    Ok((columns, rows))
 }
 
 pub fn try_decode_binary<'a>(
