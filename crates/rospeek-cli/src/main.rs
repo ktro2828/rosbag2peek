@@ -141,8 +141,15 @@ fn main() -> RosPeekResult<()> {
 
                             let value_strings = row
                                 .values()
-                                .map(|value| serde_json::to_string(value).unwrap())
-                                .collect::<Vec<_>>();
+                                .map(|value| {
+                                    serde_json::to_string(value).map_err(|e| {
+                                        RosPeekError::Other(format!(
+                                            "Failed to serialize value to string: {}",
+                                            e
+                                        ))
+                                    })
+                                })
+                                .collect::<Result<Vec<_>, _>>()?;
 
                             csv_writer.write_record(value_strings).map_err(|e| {
                                 RosPeekError::Other(format!("Failed to write CSV row: {}", e))
