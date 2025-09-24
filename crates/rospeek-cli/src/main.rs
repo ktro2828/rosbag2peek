@@ -102,9 +102,9 @@ fn main() -> RosPeekResult<()> {
 
             let messages = reader.read_messages(&topic)?;
             let n = count.unwrap_or(messages.len());
-            for (i, msg) in messages.iter().take(n).enumerate() {
-                println!("[{}] t = {} ns, {} bytes", i, msg.timestamp, msg.data.len());
-            }
+            messages.iter().take(n).enumerate().for_each(|(i, msg)| {
+                println!("[{}] t = {} ns, {} bytes", i, msg.timestamp, msg.data.len())
+            });
         }
         Commands::Dump { bag, topic, format } => {
             println!(">> Start decoding: {}", topic);
