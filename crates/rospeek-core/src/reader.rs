@@ -28,6 +28,21 @@ pub struct BagStats {
     pub end_time: String,
 }
 
+impl Display for BagStats {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "File:             {}\nBag size:         {:.3} GiB\nStorage type:     {}\nDuration:         {} s\nStart:            {}\nEnd:              {}",
+            self.path,
+            self.size_bytes,
+            self.storage_type,
+            self.duration_sec,
+            self.start_time,
+            self.end_time
+        )
+    }
+}
+
 #[derive(Debug)]
 pub enum StorageType {
     Sqlite3,

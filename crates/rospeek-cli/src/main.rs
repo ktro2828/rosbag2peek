@@ -65,16 +65,9 @@ fn main() -> RosPeekResult<()> {
         Commands::Info { bag } => {
             let reader = create_reader(bag)?;
 
-            let stats = reader.stats();
+            println!("{}", reader.stats());
 
-            println!("File:             {}", stats.path);
-            println!("Bag size:         {:.3} GiB", stats.size_bytes);
-            println!("Storage type:     {}", stats.storage_type);
-            println!("Duration:         {} s", stats.duration_sec);
-            println!("Start:            {}", stats.start_time);
-            println!("End:              {}", stats.end_time);
             println!("Topic Information:");
-
             // group topics by namespace
             let mut grouped: BTreeMap<String, Vec<_>> = BTreeMap::new();
             for topic in reader.topics()? {
@@ -102,26 +95,25 @@ fn main() -> RosPeekResult<()> {
 
             let messages = reader.read_messages(&topic)?;
             let n = count.unwrap_or(messages.len());
-            for (i, msg) in messages.iter().take(n).enumerate() {
-                println!("[{}] t = {} ns, {} bytes", i, msg.timestamp, msg.data.len());
-            }
+            messages.iter().take(n).enumerate().for_each(|(i, msg)| {
+                println!("[{}] t = {} ns, {} bytes", i, msg.timestamp, msg.data.len())
+            });
         }
         Commands::Dump { bag, topic, format } => {
             println!(">> Start decoding: {}", topic);
             let reader = create_reader(bag)?;
             println!("✨Finish decoding all messages");
             println!(">> Start dumping results into {:?}", format);
-            match format {
+            let filename = match format {
                 Format::Json => {
                     let filename = topic.trim_start_matches('/').replace('/', ".") + ".json";
                     let writer = File::create(&filename)?;
                     let values = try_decode_json(reader, &topic)?;
                     serde_json::to_writer_pretty(writer, &values)
                         .map_err(|_| RosPeekError::Other("Failed to write JSON".to_string()))?;
-                    println!("✨Success to save JSON to: {}", filename);
+                    filename
                 }
                 Format::Csv => {
-                    println!(">> Start dumping results into CSV");
                     let filename = topic.trim_start_matches('/').replace('/', ".") + ".csv";
                     let writer = File::create(&filename)?;
                     let mut csv_writer = csv::WriterBuilder::new().from_writer(writer);
@@ -134,9 +126,10 @@ fn main() -> RosPeekResult<()> {
                             RosPeekError::Other(format!("Failed to write CSV row: {}", e))
                         })?
                     }
-                    println!("✨Success to save CSV to: {}", filename);
+                    filename
                 }
-            }
+            };
+            println!("✨Success to save {:?} to: {}", format, filename);
         }
         Commands::App => spawn_app().map_err(|e| RosPeekError::Other(format!("{e}")))?,
     }
