@@ -315,15 +315,14 @@ pub fn try_decode_csv(
     let json_values = try_decode_json(reader, topic)?;
 
     let mut columns = BTreeSet::new();
-    let mut rows = Vec::new();
-
+    let mut rows = Vec::with_capacity(json_values.len());
     for value in json_values {
         if let Value::Object(object) = value {
-            let flatten = flatten_json(&object)?;
-            columns.extend(flatten.keys().cloned());
+            let result = flatten_json(&object)?;
+            columns.extend(result.keys().cloned());
             let row = columns
                 .iter()
-                .map(|col| flatten.get(col).map(|v| v.to_string()).unwrap_or_default())
+                .map(|col| result.get(col).map(|v| v.to_string()).unwrap_or_default())
                 .collect();
             rows.push(row);
         }
