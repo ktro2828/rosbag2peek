@@ -1,4 +1,8 @@
-use std::{env, fs::read_to_string, path::PathBuf};
+use std::{
+    env,
+    fs::read_to_string,
+    path::{Path, PathBuf},
+};
 
 use regex::Regex;
 
@@ -25,10 +29,9 @@ impl TryFrom<&str> for MessageSchema {
     /// let schema = rospeek_core::MessageSchema::try_from("std_msgs/msg/Float64").unwrap();
     /// ```
     fn try_from(type_name: &str) -> Result<Self, Self::Error> {
-        let idl_path =
+        let idl =
             find_ros_idl_path(type_name).ok_or(RosPeekError::IdlNotFound(type_name.to_string()))?;
-        let idl = read_to_string(idl_path)?;
-        let schema = parse_idl_to_schema(&idl, type_name)?;
+        let schema = parse_idl_to_schema(idl, type_name)?;
         Ok(schema)
     }
 }
@@ -82,11 +85,10 @@ impl FieldType {
 ///
 /// # Examples
 /// ```
-/// use std::path::PathBuf;
-///
 /// let path = rospeek_core::find_ros_idl_path("std_msgs/msg/Float64").unwrap();
 ///
-/// assert_eq!(path, PathBuf::from("/opt/ros/humble/share/std_msgs/msg/Float64.idl"));
+/// let expect = rospeek_core::read_to_filepath("/opt/ros/$ROS_DISTRO/share/std_msgs/msg/Float64.idl").unwrap();
+/// assert_eq!(path, expect);
 /// ```
 pub fn find_ros_idl_path(type_name: &str) -> Option<PathBuf> {
     let mut type_name_parts = type_name.split('/');
@@ -120,24 +122,26 @@ pub fn find_ros_idl_path(type_name: &str) -> Option<PathBuf> {
 ///
 /// # Examples
 /// ```
-/// use std::fs::read_to_string;
-///
-/// let idl = read_to_string("/opt/ros/humble/share/std_msgs/msg/Float64.idl").unwrap();
-/// let schema = rospeek_core::parse_idl_to_schema(&idl, "std_msgs/msg/Float64").unwrap();
+/// let schema = rospeek_core::parse_idl_to_schema("/opt/ros/$ROS_DISTRO/share/std_msgs/msg/Float64.idl", "std_msgs/msg/Float64").unwrap();
 ///
 /// assert_eq!(schema.type_name, "std_msgs/msg/Float64".to_string());
 /// assert_eq!(schema.fields.len(), 1);
 /// assert_eq!(schema.fields[0].name, "data".to_string());
 /// assert_eq!(schema.fields[0].type_name(), "double".to_string());
 /// ```
-pub fn parse_idl_to_schema(idl: &str, type_name: &str) -> RosPeekResult<MessageSchema> {
-    let mut fields = Vec::new();
+pub fn parse_idl_to_schema<P: AsRef<Path>>(
+    idl: P,
+    type_name: &str,
+) -> RosPeekResult<MessageSchema> {
+    let idl_path = read_to_filepath(idl.as_ref())?;
+    let idl_str = read_to_string(&idl_path)?;
 
-    let lines = idl
+    let lines = idl_str
         .lines()
         .map(|l| l.trim())
         .filter(|l| !l.is_empty() && l.ends_with(";"));
 
+    let mut fields = Vec::new();
     for line in lines {
         // e.g. "float64 x;" / "int32[3] values;" / "string[] names;"
         let tokens: Vec<_> = line.trim_end_matches(';').split_whitespace().collect();
@@ -159,6 +163,28 @@ pub fn parse_idl_to_schema(idl: &str, type_name: &str) -> RosPeekResult<MessageS
         type_name: type_name.to_string(),
         fields,
     })
+}
+
+/// Reads a file path from a string, expanding any shell variables.
+///
+/// # Arguments
+/// * `path` - The path to the file to read.
+///
+/// # Returns
+/// A `RosPeekResult` containing the path to the file.
+///
+/// # Examples
+/// ```
+/// let filepath = rospeek_core::read_to_filepath("$HOME/Documents/example.txt").unwrap();
+/// println!("Filepath: {:?}", filepath);
+/// ```
+pub fn read_to_filepath<P: AsRef<Path>>(path: P) -> RosPeekResult<PathBuf> {
+    let path_str = path
+        .as_ref()
+        .to_str()
+        .ok_or_else(|| RosPeekError::Other("Path contains invalid UTF-8".to_string()))?;
+    let expanded = shellexpand::full(path_str).map_err(|e| RosPeekError::Other(e.to_string()))?;
+    Ok(PathBuf::from(expanded.as_ref()))
 }
 
 fn to_field_type(s: &str) -> FieldType {
