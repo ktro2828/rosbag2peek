@@ -1,5 +1,5 @@
-use clap::{Parser, Subcommand};
-use rospeek_core::{RosPeekError, RosPeekResult, try_decode_json};
+use clap::{Parser, Subcommand, ValueEnum};
+use rospeek_core::{RosPeekError, RosPeekResult, try_decode_csv, try_decode_json};
 use rospeek_gui::{create_reader, spawn_app};
 use std::{collections::BTreeMap, fs::File, path::PathBuf};
 
@@ -37,10 +37,25 @@ enum Commands {
 
         #[arg(short, long, help = "Topic name to decode (e.g. /tf)")]
         topic: String,
+
+        #[arg(
+            short,
+            long,
+            value_enum,
+            default_value = "json",
+            help = "Output format"
+        )]
+        format: Format,
     },
 
     /// Spawn GUI application
     App,
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+enum Format {
+    Json,
+    Csv,
 }
 
 fn main() -> RosPeekResult<()> {
@@ -91,17 +106,37 @@ fn main() -> RosPeekResult<()> {
                 println!("[{}] t = {} ns, {} bytes", i, msg.timestamp, msg.data.len());
             }
         }
-        Commands::Dump { bag, topic } => {
+        Commands::Dump { bag, topic, format } => {
             println!(">> Start decoding: {}", topic);
             let reader = create_reader(bag)?;
-            let results = try_decode_json(reader, &topic)?;
             println!("✨Finish decoding all messages");
-            println!(">> Start dumping results into JSON");
-            let filename = topic.trim_start_matches('/').replace('/', ".") + ".json";
-            let writer = File::create(&filename)?;
-            serde_json::to_writer_pretty(writer, &results)
-                .map_err(|_| RosPeekError::Other("Failed to write JSON".to_string()))?;
-            println!("✨Success to save JSON to: {}", filename);
+            println!(">> Start dumping results into {:?}", format);
+            match format {
+                Format::Json => {
+                    let filename = topic.trim_start_matches('/').replace('/', ".") + ".json";
+                    let writer = File::create(&filename)?;
+                    let values = try_decode_json(reader, &topic)?;
+                    serde_json::to_writer_pretty(writer, &values)
+                        .map_err(|_| RosPeekError::Other("Failed to write JSON".to_string()))?;
+                    println!("✨Success to save JSON to: {}", filename);
+                }
+                Format::Csv => {
+                    println!(">> Start dumping results into CSV");
+                    let filename = topic.trim_start_matches('/').replace('/', ".") + ".csv";
+                    let writer = File::create(&filename)?;
+                    let mut csv_writer = csv::WriterBuilder::new().from_writer(writer);
+                    let (columns, values) = try_decode_csv(reader, &topic)?;
+                    csv_writer.write_record(columns).map_err(|e| {
+                        RosPeekError::Other(format!("Failed to write CSV header: {}", e))
+                    })?;
+                    for value in values {
+                        csv_writer.write_record(value).map_err(|e| {
+                            RosPeekError::Other(format!("Failed to write CSV row: {}", e))
+                        })?
+                    }
+                    println!("✨Success to save CSV to: {}", filename);
+                }
+            }
         }
         Commands::App => spawn_app().map_err(|e| RosPeekError::Other(format!("{e}")))?,
     }

@@ -35,10 +35,10 @@ rospeek info <BAG_FILE>
 rospeek show <BAG_FILE> -t <TOPIC_NAME>
 ```
 
-#### Decode Topic Messages and Dump into JSON
+#### Decode Topic Messages and Dump into JSON/CSV
 
 ```shell
-rospeek dump <BAG_FILE> -t <TOPIC_NAME>
+rospeek dump <BAG_FILE> -t <TOPIC_NAME> [-f json|csv]
 ```
 
 #### Spawn GUI
