@@ -43,7 +43,7 @@ fn insert_value(base_json: &mut Map<String, Value>, key: &str, to_insert: &Value
         if let Some(array) = value.as_array_mut() {
             array.push(to_insert.clone());
         } else {
-            base_json[key] = json!([value, to_insert]);
+            base_json[key] = json!([value.clone(), to_insert]);
         }
     } else {
         base_json.insert(key.to_string(), json!(to_insert));
