@@ -54,7 +54,7 @@ jobs:
         run: cargo build --verbose
 
       - name: Run tests
-        if: ${{ runner.os == 'Linux' && matrix.rosdistro == 'humble' }}
+        if: ${{ runner.os == 'Linux' }}
         run: |
           source /opt/ros/${{ matrix.rosdistro }}/setup.bash
           cargo test --verbose
