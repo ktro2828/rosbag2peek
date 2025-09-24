@@ -65,16 +65,9 @@ fn main() -> RosPeekResult<()> {
         Commands::Info { bag } => {
             let reader = create_reader(bag)?;
 
-            let stats = reader.stats();
+            println!("{}", reader.stats());
 
-            println!("File:             {}", stats.path);
-            println!("Bag size:         {:.3} GiB", stats.size_bytes);
-            println!("Storage type:     {}", stats.storage_type);
-            println!("Duration:         {} s", stats.duration_sec);
-            println!("Start:            {}", stats.start_time);
-            println!("End:              {}", stats.end_time);
             println!("Topic Information:");
-
             // group topics by namespace
             let mut grouped: BTreeMap<String, Vec<_>> = BTreeMap::new();
             for topic in reader.topics()? {
