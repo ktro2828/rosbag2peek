@@ -111,17 +111,16 @@ fn main() -> RosPeekResult<()> {
             let reader = create_reader(bag)?;
             println!("✨Finish decoding all messages");
             println!(">> Start dumping results into {:?}", format);
-            match format {
+            let filename = match format {
                 Format::Json => {
                     let filename = topic.trim_start_matches('/').replace('/', ".") + ".json";
                     let writer = File::create(&filename)?;
                     let values = try_decode_json(reader, &topic)?;
                     serde_json::to_writer_pretty(writer, &values)
                         .map_err(|_| RosPeekError::Other("Failed to write JSON".to_string()))?;
-                    println!("✨Success to save JSON to: {}", filename);
+                    filename
                 }
                 Format::Csv => {
-                    println!(">> Start dumping results into CSV");
                     let filename = topic.trim_start_matches('/').replace('/', ".") + ".csv";
                     let writer = File::create(&filename)?;
                     let mut csv_writer = csv::WriterBuilder::new().from_writer(writer);
@@ -134,9 +133,10 @@ fn main() -> RosPeekResult<()> {
                             RosPeekError::Other(format!("Failed to write CSV row: {}", e))
                         })?
                     }
-                    println!("✨Success to save CSV to: {}", filename);
+                    filename
                 }
-            }
+            };
+            println!("✨Success to save {:?} to: {}", format, filename);
         }
         Commands::App => spawn_app().map_err(|e| RosPeekError::Other(format!("{e}")))?,
     }
