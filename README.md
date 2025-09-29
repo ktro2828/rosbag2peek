@@ -27,7 +27,7 @@ cargo install --path crates/rospeek-cli
 
 Then, you can refer to usage of CLI with `rospeek -h`.
 
-#### Show Bag Information and List Topics
+#### 1. Show Bag Information and List Topics
 
 This command shows overviews of a bag file, similar to `rosbag2 info`:
 
@@ -35,7 +35,7 @@ This command shows overviews of a bag file, similar to `rosbag2 info`:
 rospeek info <BAG_FILE>
 ```
 
-#### List Topic Messages
+#### 2. List Topic Messages
 
 This command shows a list of serialized messages:
 
@@ -43,7 +43,7 @@ This command shows a list of serialized messages:
 rospeek show <BAG_FILE> -t <TOPIC_NAME>
 ```
 
-#### Decode Topic Messages and Dump into JSON/CSV
+#### 3. Decode Topic Messages and Dump into JSON/CSV
 
 This command decodes topic messages and dumps them into JSON or CSV format.
 
@@ -59,7 +59,13 @@ For example, the following command dumps `/foo/bar` into `foo.bar.json`:
 rospeek dump <BAG_FILE> -t /foo/bar -f json
 ```
 
-#### Spawn GUI
+You can also dump messages between two timestamps:
+
+```shell
+rospeek dump <BAG_FILE> -t /foo/bar -f json --since 1640995200 --until 1640995260
+```
+
+#### 4. Spawn GUI
 
 This command spawns a GUI application for visualizing bag files:
 

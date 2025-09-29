@@ -7,15 +7,94 @@ use std::{
 use crate::{RawMessage, RosPeekResult, Topic};
 
 pub trait BagReader: Send {
+    /// Opens a bag file at the given path.
+    ///
+    /// # Arguments
+    /// * `path` - The path to the bag file.
+    ///
+    /// # Returns
+    /// A result containing the opened bag reader or an error.
     fn open<P: AsRef<Path>>(path: P) -> RosPeekResult<Self>
     where
         Self: Sized;
 
+    /// Returns statistics about the bag file.
+    ///
+    /// # Returns
+    /// A reference to the statistics about the bag file.
     fn stats(&self) -> &BagStats;
 
+    /// Returns a list of topics in the bag file.
+    ///
+    /// # Returns
+    /// A result containing a vector of topics or an error.
     fn topics(&self) -> RosPeekResult<Vec<Topic>>;
 
+    /// Reads all messages from the bag file.
+    ///
+    /// # Arguments
+    /// * `topic_name` - The name of the topic to read messages from.
+    ///
+    /// # Returns
+    /// A result containing a vector of raw messages or an error.
     fn read_messages(&self, topic_name: &str) -> RosPeekResult<Vec<RawMessage>>;
+
+    /// Reads messages from the bag file since a given timestamp.
+    ///
+    /// # Arguments
+    /// * `topic_name` - The name of the topic to read messages from.
+    /// * `since` - The timestamp to start reading messages from.
+    ///
+    /// # Returns
+    /// A result containing a vector of raw messages or an error.
+    fn read_messages_since(&self, topic_name: &str, since: u64) -> RosPeekResult<Vec<RawMessage>> {
+        let messages = self.read_messages(topic_name)?;
+        let filtered_messages = messages
+            .into_iter()
+            .filter(|msg| msg.timestamp >= since)
+            .collect();
+        Ok(filtered_messages)
+    }
+
+    /// Reads messages from the bag file until a given timestamp.
+    ///
+    /// # Arguments
+    /// * `topic_name` - The name of the topic to read messages from.
+    /// * `until` - The timestamp to stop reading messages at.
+    ///
+    /// # Returns
+    /// A result containing a vector of raw messages or an error.
+    fn read_messages_until(&self, topic_name: &str, until: u64) -> RosPeekResult<Vec<RawMessage>> {
+        let messages = self.read_messages(topic_name)?;
+        let filtered_messages = messages
+            .into_iter()
+            .filter(|msg| msg.timestamp <= until)
+            .collect();
+        Ok(filtered_messages)
+    }
+
+    /// Reads messages from the bag file between two timestamps.
+    ///
+    /// # Arguments
+    /// * `topic_name` - The name of the topic to read messages from.
+    /// * `since` - The timestamp to start reading messages from.
+    /// * `until` - The timestamp to stop reading messages at.
+    ///
+    /// # Returns
+    /// A result containing a vector of raw messages or an error.
+    fn read_messages_between(
+        &self,
+        topic_name: &str,
+        since: u64,
+        until: u64,
+    ) -> RosPeekResult<Vec<RawMessage>> {
+        let messages = self.read_messages(topic_name)?;
+        let filtered_messages = messages
+            .into_iter()
+            .filter(|msg| msg.timestamp >= since && msg.timestamp <= until)
+            .collect();
+        Ok(filtered_messages)
+    }
 }
 
 #[derive(Debug)]
@@ -59,6 +138,9 @@ impl Display for StorageType {
 ///
 /// # Arguments
 /// * `path` - The path to the file.
+///
+/// # Returns
+/// The size of the file in GB.
 pub fn size_gb<P: AsRef<Path>>(path: P) -> f64 {
     let size_bytes = path.as_ref().metadata().unwrap().len() as f64;
     size_bytes / (1024.0 * 1024.0 * 1024.0)

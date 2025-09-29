@@ -272,12 +272,16 @@ impl<'a> CdrDecoder<'a> {
 /// # Arguments
 /// * `reader` - The bag reader to read messages from.
 /// * `topic` - The topic to decode messages for.
+/// * `since` - The start time to decode messages from.
+/// * `until` - The end time to decode messages to.
 ///
 /// # Returns
 /// A vector of JSON values representing the decoded messages.
 pub fn try_decode_json(
     reader: Box<dyn BagReader>,
     topic: &str,
+    since: Option<u64>,
+    until: Option<u64>,
 ) -> RosPeekResult<Vec<serde_json::Value>> {
     let topic_info = reader
         .topics()?
@@ -287,7 +291,12 @@ pub fn try_decode_json(
 
     let schema = Arc::new(MessageSchema::try_from(topic_info.type_name.as_ref())?);
 
-    let messages = reader.read_messages(topic)?;
+    let messages = match (since, until) {
+        (Some(since), Some(until)) => reader.read_messages_between(topic, since, until)?,
+        (Some(since), None) => reader.read_messages_since(topic, since)?,
+        (None, Some(until)) => reader.read_messages_until(topic, until)?,
+        _ => reader.read_messages(topic)?,
+    };
 
     let values = messages
         .par_iter()
@@ -305,14 +314,18 @@ pub fn try_decode_json(
 /// # Arguments
 /// * `reader` - The bag reader to read messages from.
 /// * `topic` - The topic to decode.
+/// * `since` - The start time to decode messages from.
+/// * `until` - The end time to decode messages to.
 ///
 /// # Returns
 /// A tuple containing the column names and rows of the decoded CSV.
 pub fn try_decode_csv(
     reader: Box<dyn BagReader>,
     topic: &str,
+    since: Option<u64>,
+    until: Option<u64>,
 ) -> RosPeekResult<(BTreeSet<String>, Vec<Vec<String>>)> {
-    let json_values = try_decode_json(reader, topic)?;
+    let json_values = try_decode_json(reader, topic, since, until)?;
 
     let mut columns = BTreeSet::new();
     let mut rows = Vec::with_capacity(json_values.len());
