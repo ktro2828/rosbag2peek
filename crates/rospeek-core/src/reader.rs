@@ -41,6 +41,9 @@ pub trait BagReader: Send {
 
     /// Reads messages from the bag file since a given timestamp.
     ///
+    /// # Note
+    /// This function reads all messages from the bag file and filters them based on the given timestamp.
+    ///
     /// # Arguments
     /// * `topic_name` - The name of the topic to read messages from.
     /// * `since` - The timestamp to start reading messages from.
@@ -58,6 +61,9 @@ pub trait BagReader: Send {
 
     /// Reads messages from the bag file until a given timestamp.
     ///
+    /// # Note
+    /// This function reads all messages from the bag file and filters them based on the given timestamp.
+    ///
     /// # Arguments
     /// * `topic_name` - The name of the topic to read messages from.
     /// * `until` - The timestamp to stop reading messages at.
@@ -74,6 +80,9 @@ pub trait BagReader: Send {
     }
 
     /// Reads messages from the bag file between two timestamps.
+    ///
+    /// # Note
+    /// This function reads all messages from the bag file and filters them based on the given timestamps.
     ///
     /// # Arguments
     /// * `topic_name` - The name of the topic to read messages from.
