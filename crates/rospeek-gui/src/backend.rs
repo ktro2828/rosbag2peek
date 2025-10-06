@@ -1,6 +1,7 @@
 use std::{path::Path, sync::Mutex};
 
-use rospeek_core::{BagReader, RawMessage, RosPeekError, RosPeekResult, Topic};
+use anyhow::bail;
+use rospeek_core::{BagReader, RawMessage, RosPeekResult, Topic};
 use rospeek_db3::Db3Reader;
 use rospeek_mcap::McapReader;
 
@@ -62,13 +63,7 @@ pub fn create_reader<P: AsRef<Path>>(bag: P) -> RosPeekResult<Box<dyn BagReader>
     let reader: Box<dyn BagReader> = match bag.as_ref().extension().and_then(|ext| ext.to_str()) {
         Some("db3") => Box::new(Db3Reader::open(bag)?),
         Some("mcap") => Box::new(McapReader::open(bag)?),
-        _ => {
-            return Err(RosPeekError::UnsupportedFormat(format!(
-                "Unsupported bag format: {}",
-                bag.as_ref().display()
-            ))
-            .into());
-        }
+        _ => bail!("Unsupported bag format: {}", bag.as_ref().display()),
     };
 
     Ok(reader)

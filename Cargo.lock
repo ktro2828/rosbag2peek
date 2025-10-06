@@ -2713,6 +2713,7 @@ dependencies = [
 name = "rospeek-db3"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "rospeek-core",
  "rusqlite",
 ]

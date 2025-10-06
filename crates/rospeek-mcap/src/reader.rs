@@ -66,7 +66,7 @@ impl BagReader for McapReader {
         let topic_map: Result<HashMap<String, Topic>, anyhow::Error> = stream.into_iter().try_fold(
             HashMap::<String, Topic>::new(),
             |mut acc, message_result| {
-                let message = message_result.map_err(anyhow::Error::from)?;
+                let message = message_result?;
                 let topic_name = message.channel.topic.clone();
 
                 acc.entry(topic_name.clone())

@@ -1,7 +1,8 @@
 use std::path::Path;
 
+use anyhow::anyhow;
 use rospeek_core::{
-    BagReader, RawMessage, RosPeekError, RosPeekResult, Topic, ns_to_iso,
+    BagReader, RawMessage, RosPeekResult, Topic, ns_to_iso,
     reader::{BagStats, StorageType},
     size_gb, to_duration_sec,
 };
@@ -78,7 +79,7 @@ impl BagReader for Db3Reader {
                 [topic_name],
                 |row| row.get(0),
             )
-            .map_err(|_| RosPeekError::TopicNotFound(topic_name.to_string()))?;
+            .map_err(|_| anyhow!("Topic not found: {}", topic_name))?;
 
         let mut statement = self.connection.prepare(
             "SELECT timestamp, data FROM messages WHERE topic_id = ?1 ORDER BY timestamp ASC",
