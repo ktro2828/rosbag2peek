@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand, ValueEnum};
-use rospeek_core::{RosPeekError, RosPeekResult, try_decode_csv, try_decode_json};
+use rospeek_core::{RosPeekResult, try_decode_csv, try_decode_json};
 use rospeek_gui::{create_reader, spawn_app};
 use std::{collections::BTreeMap, fs::File, path::PathBuf};
 
@@ -121,8 +121,7 @@ fn main() -> RosPeekResult<()> {
                     let filename = topic.trim_start_matches('/').replace('/', ".") + ".json";
                     let writer = File::create(&filename)?;
                     let values = try_decode_json(reader, &topic, since, until)?;
-                    serde_json::to_writer_pretty(writer, &values)
-                        .map_err(|_| RosPeekError::Other("Failed to write JSON".to_string()))?;
+                    serde_json::to_writer_pretty(writer, &values)?;
                     filename
                 }
                 Format::Csv => {
@@ -130,20 +129,16 @@ fn main() -> RosPeekResult<()> {
                     let writer = File::create(&filename)?;
                     let mut csv_writer = csv::WriterBuilder::new().from_writer(writer);
                     let (columns, values) = try_decode_csv(reader, &topic, since, until)?;
-                    csv_writer.write_record(columns).map_err(|e| {
-                        RosPeekError::Other(format!("Failed to write CSV header: {}", e))
-                    })?;
+                    csv_writer.write_record(columns)?;
                     for value in values {
-                        csv_writer.write_record(value).map_err(|e| {
-                            RosPeekError::Other(format!("Failed to write CSV row: {}", e))
-                        })?
+                        csv_writer.write_record(value)?
                     }
                     filename
                 }
             };
             println!("✨Success to save {:?} to: {}", format, filename);
         }
-        Commands::App => spawn_app().map_err(|e| RosPeekError::Other(format!("{e}")))?,
+        Commands::App => spawn_app()?,
     }
 
     Ok(())

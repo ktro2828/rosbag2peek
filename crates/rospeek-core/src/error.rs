@@ -24,8 +24,11 @@ pub enum RosPeekError {
     #[error("Invalid UTF-16 data: {0}")]
     InvalidUtf16(#[from] FromUtf16Error),
 
+    #[error("Invalid value: {0}")]
+    InvalidValue(String),
+
     #[error("Other: {0}")]
     Other(String),
 }
 
-pub type RosPeekResult<T> = Result<T, RosPeekError>;
+pub type RosPeekResult<T> = anyhow::Result<T>;

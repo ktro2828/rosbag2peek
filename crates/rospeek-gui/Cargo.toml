@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow = "1.0.100"
 crossbeam-channel = "0.5.15"
 eframe = { version = "0.32", default-features = false, features = ["glow", "x11", "wayland"] }
 egui = "0.32.0"

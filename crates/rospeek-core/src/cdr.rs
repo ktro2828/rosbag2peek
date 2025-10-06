@@ -263,7 +263,7 @@ impl<'a> CdrDecoder<'a> {
         if buf.last() == Some(&0) {
             buf.pop(); // null terminator (optional in ROS 2)
         }
-        String::from_utf8(buf).map_err(RosPeekError::InvalidUtf8)
+        Ok(String::from_utf8(buf)?)
     }
 }
 
@@ -350,6 +350,5 @@ pub fn try_decode_binary<'a>(
 ) -> RosPeekResult<String> {
     let value = decoder.reset(data).decode(schema)?;
 
-    serde_json::to_string_pretty(&value)
-        .map_err(|e| RosPeekError::Other(format!("Failed to format JSON: {}", e)))
+    Ok(serde_json::to_string_pretty(&value)?)
 }

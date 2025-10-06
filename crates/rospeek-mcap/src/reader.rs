@@ -3,8 +3,8 @@ use std::{fs::File, path::Path};
 use mcap::MessageStream;
 use memmap2::Mmap;
 use rospeek_core::{
-    BagReader, BagStats, RawMessage, RosPeekError, RosPeekResult, StorageType, Topic, ns_to_iso,
-    size_gb, to_duration_sec,
+    BagReader, BagStats, RawMessage, RosPeekResult, StorageType, Topic, ns_to_iso, size_gb,
+    to_duration_sec,
 };
 
 pub struct McapReader {
@@ -14,8 +14,7 @@ pub struct McapReader {
 
 impl McapReader {
     fn as_stream(&self) -> RosPeekResult<MessageStream<'_>> {
-        MessageStream::new(&self.mmap)
-            .map_err(|e| RosPeekError::Other(format!("Failed to create message stream: {}", e)))
+        Ok(MessageStream::new(&self.mmap)?)
     }
 }
 
@@ -28,12 +27,10 @@ impl BagReader for McapReader {
         let mut start_ns = u64::MAX;
         let mut end_ns = u64::MIN;
 
-        let stream = MessageStream::new(&mmap)
-            .map_err(|e| RosPeekError::Other(format!("Failed to create message stream: {}", e)))?;
+        let stream = MessageStream::new(&mmap)?;
 
         for message_result in stream.into_iter() {
-            let message = message_result
-                .map_err(|e| RosPeekError::Other(format!("Failed to read message: {}", e)))?;
+            let message = message_result?;
 
             let log_time = message.log_time;
 
@@ -66,36 +63,31 @@ impl BagReader for McapReader {
 
         let stream = self.as_stream()?;
 
-        let topic_map: Result<HashMap<String, Topic>, RosPeekError> = stream
-            .map(|message_result| {
-                message_result
-                    .map_err(|_| RosPeekError::Other("Failed to read message".to_string()))
-            })
-            .try_fold(
-                HashMap::<String, Topic>::new(),
-                |mut acc, message_result| {
-                    let message = message_result?;
-                    let topic_name = message.channel.topic.clone();
+        let topic_map: Result<HashMap<String, Topic>, anyhow::Error> = stream.into_iter().try_fold(
+            HashMap::<String, Topic>::new(),
+            |mut acc, message_result| {
+                let message = message_result.map_err(anyhow::Error::from)?;
+                let topic_name = message.channel.topic.clone();
 
-                    acc.entry(topic_name.clone())
-                        .and_modify(|topic| topic.count += 1)
-                        .or_insert_with(|| Topic {
-                            id: message.channel.id,
-                            name: topic_name,
-                            type_name: message
-                                .channel
-                                .schema
-                                .as_ref()
-                                .map(|s| s.name.clone())
-                                .unwrap_or_default(),
-                            count: 1,
-                            serialization_format: message.channel.message_encoding.clone(),
-                            offered_qos_profiles: None,
-                        });
+                acc.entry(topic_name.clone())
+                    .and_modify(|topic| topic.count += 1)
+                    .or_insert_with(|| Topic {
+                        id: message.channel.id,
+                        name: topic_name,
+                        type_name: message
+                            .channel
+                            .schema
+                            .as_ref()
+                            .map(|s| s.name.clone())
+                            .unwrap_or_default(),
+                        count: 1,
+                        serialization_format: message.channel.message_encoding.clone(),
+                        offered_qos_profiles: None,
+                    });
 
-                    Ok::<HashMap<String, Topic>, RosPeekError>(acc)
-                },
-            );
+                Ok(acc)
+            },
+        );
 
         topic_map.map(|map| map.into_values().collect())
     }
@@ -104,18 +96,15 @@ impl BagReader for McapReader {
         let stream = self.as_stream()?;
 
         stream
-            .map(|message_result| {
-                message_result
-                    .map_err(|_| RosPeekError::Other("Failed to read message".to_string()))
-            })
+            .into_iter()
             .filter_map(|message_result| match message_result {
                 Ok(message) if message.channel.topic == topic_name => Some(Ok(RawMessage {
                     timestamp: message.publish_time,
                     topic_id: message.channel.id,
                     data: message.data.into(),
                 })),
-                Ok(_) => None,          // Skip messages from other topics
-                Err(e) => Some(Err(e)), // Propagate errors
+                Ok(_) => None, // Skip messages from other topics
+                Err(e) => Some(Err(anyhow::Error::from(e))), // Convert McapError to anyhow::Error
             })
             .collect::<RosPeekResult<Vec<RawMessage>>>()
     }

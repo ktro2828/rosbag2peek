@@ -17,20 +17,17 @@ impl BagReader for Db3Reader {
     where
         Self: Sized,
     {
-        let connection = Connection::open(path.as_ref())
-            .map_err(|e| RosPeekError::Other(format!("SQLite open error: {}", e)))?;
+        let connection = Connection::open(path.as_ref())?;
 
-        let (start_ns, end_ns) = connection
-            .query_row(
-                "SELECT COALESCE(MIN(timestamp), 0), COALESCE(MAX(timestamp), 0) FROM messages",
-                [],
-                |r| {
-                    let start_ns: u64 = r.get(0)?;
-                    let end_ns: u64 = r.get(1)?;
-                    Ok((start_ns, end_ns))
-                },
-            )
-            .map_err(|e| RosPeekError::Other(format!("Prepare statement failed: {}", e)))?;
+        let (start_ns, end_ns) = connection.query_row(
+            "SELECT COALESCE(MIN(timestamp), 0), COALESCE(MAX(timestamp), 0) FROM messages",
+            [],
+            |r| {
+                let start_ns: u64 = r.get(0)?;
+                let end_ns: u64 = r.get(1)?;
+                Ok((start_ns, end_ns))
+            },
+        )?;
 
         let stats = BagStats {
             path: path.as_ref().display().to_string(),
@@ -57,24 +54,20 @@ impl BagReader for Db3Reader {
                         LEFT JOIN messages m ON t.id = m.topic_id
                         GROUP BY t.id
                         ORDER BY t.name"#,
-            )
-            .map_err(|e| RosPeekError::Other(format!("Prepare statement failed: {}", e)))?;
+            )?;
 
-        let rows = statement
-            .query_map([], |row| {
-                Ok(Topic {
-                    id: row.get(0)?,
-                    name: row.get(1)?,
-                    type_name: row.get(2)?,
-                    count: row.get(3)?,
-                    serialization_format: row.get(4)?,
-                    offered_qos_profiles: row.get(5)?,
-                })
+        let rows = statement.query_map([], |row| {
+            Ok(Topic {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                type_name: row.get(2)?,
+                count: row.get(3)?,
+                serialization_format: row.get(4)?,
+                offered_qos_profiles: row.get(5)?,
             })
-            .map_err(|e| RosPeekError::Other(format!("Query failed: {}", e)))?;
+        })?;
 
-        rows.collect::<Result<_, _>>()
-            .map_err(|e| RosPeekError::Other(format!("Row mapping failed: {}", e)))
+        Ok(rows.collect::<Result<_, _>>()?)
     }
 
     fn read_messages(&self, topic_name: &str) -> RosPeekResult<Vec<rospeek_core::RawMessage>> {
@@ -87,24 +80,18 @@ impl BagReader for Db3Reader {
             )
             .map_err(|_| RosPeekError::TopicNotFound(topic_name.to_string()))?;
 
-        let mut statement = self
-            .connection
-            .prepare(
-                "SELECT timestamp, data FROM messages WHERE topic_id = ?1 ORDER BY timestamp ASC",
-            )
-            .map_err(|e| RosPeekError::Other(format!("Prepare statement failed: {}", e)))?;
+        let mut statement = self.connection.prepare(
+            "SELECT timestamp, data FROM messages WHERE topic_id = ?1 ORDER BY timestamp ASC",
+        )?;
 
-        let rows = statement
-            .query_map([topic_id], |row| {
-                Ok(RawMessage {
-                    timestamp: row.get(0)?,
-                    topic_id,
-                    data: row.get(1)?,
-                })
+        let rows = statement.query_map([topic_id], |row| {
+            Ok(RawMessage {
+                timestamp: row.get(0)?,
+                topic_id,
+                data: row.get(1)?,
             })
-            .map_err(|e| RosPeekError::Other(format!("Query failed: {}", e)))?;
+        })?;
 
-        rows.collect::<Result<_, _>>()
-            .map_err(|e| RosPeekError::Other(format!("Row mapping failed: {}", e)))
+        Ok(rows.collect::<Result<_, _>>()?)
     }
 }

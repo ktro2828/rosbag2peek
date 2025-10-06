@@ -66,7 +66,8 @@ pub fn create_reader<P: AsRef<Path>>(bag: P) -> RosPeekResult<Box<dyn BagReader>
             return Err(RosPeekError::UnsupportedFormat(format!(
                 "Unsupported bag format: {}",
                 bag.as_ref().display()
-            )));
+            ))
+            .into());
         }
     };
 
