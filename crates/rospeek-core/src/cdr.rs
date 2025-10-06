@@ -7,11 +7,7 @@ use std::{
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde_json::{Value, json};
 
-use crate::{
-    BagReader, FieldType, MessageField, MessageSchema,
-    error::{RosPeekError, RosPeekResult},
-    flatten_json,
-};
+use crate::{BagReader, FieldType, MessageField, MessageSchema, RosPeekResult, flatten_json};
 
 #[derive(Debug)]
 enum Endianness {
@@ -263,7 +259,7 @@ impl<'a> CdrDecoder<'a> {
         if buf.last() == Some(&0) {
             buf.pop(); // null terminator (optional in ROS 2)
         }
-        String::from_utf8(buf).map_err(RosPeekError::InvalidUtf8)
+        Ok(String::from_utf8(buf)?)
     }
 }
 
@@ -287,7 +283,7 @@ pub fn try_decode_json(
         .topics()?
         .into_iter()
         .find(|t| t.name == topic)
-        .ok_or_else(|| RosPeekError::TopicNotFound(topic.to_string()))?;
+        .ok_or_else(|| anyhow::anyhow!("Topic not found: {}", topic))?;
 
     let schema = Arc::new(MessageSchema::try_from(topic_info.type_name.as_ref())?);
 
@@ -350,6 +346,5 @@ pub fn try_decode_binary<'a>(
 ) -> RosPeekResult<String> {
     let value = decoder.reset(data).decode(schema)?;
 
-    serde_json::to_string_pretty(&value)
-        .map_err(|e| RosPeekError::Other(format!("Failed to format JSON: {}", e)))
+    Ok(serde_json::to_string_pretty(&value)?)
 }

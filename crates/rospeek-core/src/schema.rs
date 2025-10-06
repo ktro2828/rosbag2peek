@@ -4,9 +4,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use anyhow::{Context, anyhow};
 use regex::Regex;
 
-use crate::error::{RosPeekError, RosPeekResult};
+use crate::RosPeekResult;
 
 #[derive(Debug, Clone)]
 pub struct MessageSchema {
@@ -17,7 +18,7 @@ pub struct MessageSchema {
 }
 
 impl TryFrom<&str> for MessageSchema {
-    type Error = RosPeekError;
+    type Error = anyhow::Error;
 
     /// Performs to try converting `type_name` into `MessageSchema` by looking up the corresponding IDL file.
     ///
@@ -29,10 +30,9 @@ impl TryFrom<&str> for MessageSchema {
     /// let schema = rospeek_core::MessageSchema::try_from("std_msgs/msg/Float64").unwrap();
     /// ```
     fn try_from(type_name: &str) -> Result<Self, Self::Error> {
-        let idl =
-            find_ros_idl_path(type_name).ok_or(RosPeekError::IdlNotFound(type_name.to_string()))?;
-        let schema = parse_idl_to_schema(idl, type_name)?;
-        Ok(schema)
+        let idl = find_ros_idl_path(type_name)
+            .with_context(|| format!("IDL file not found for {}", type_name))?;
+        parse_idl_to_schema(idl, type_name)
     }
 }
 
@@ -182,8 +182,8 @@ pub fn read_to_filepath<P: AsRef<Path>>(path: P) -> RosPeekResult<PathBuf> {
     let path_str = path
         .as_ref()
         .to_str()
-        .ok_or_else(|| RosPeekError::Other("Path contains invalid UTF-8".to_string()))?;
-    let expanded = shellexpand::full(path_str).map_err(|e| RosPeekError::Other(e.to_string()))?;
+        .ok_or_else(|| anyhow!("Path contains invalid UTF-8"))?;
+    let expanded = shellexpand::full(path_str)?;
     Ok(PathBuf::from(expanded.as_ref()))
 }
 
