@@ -17,7 +17,7 @@ enum Endianness {
 
 impl From<&[u8]> for Endianness {
     fn from(bytes: &[u8]) -> Self {
-        match bytes.get(0).copied().unwrap_or(0x01) {
+        match bytes.first().copied().unwrap_or(0x01) {
             0x00 => Endianness::Big,
             0x01 => Endianness::Little,
             _ => Endianness::Little,
