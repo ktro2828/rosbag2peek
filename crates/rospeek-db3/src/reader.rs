@@ -79,7 +79,7 @@ impl BagReader for Db3Reader {
                 [topic_name],
                 |row| row.get(0),
             )
-            .map_err(|_| anyhow!("Topic not found: {}", topic_name))?;
+            .map_err(|_| anyhow!("Topic not found: {topic_name}"))?;
 
         let mut statement = self.connection.prepare(
             "SELECT timestamp, data FROM messages WHERE topic_id = ?1 ORDER BY timestamp ASC",

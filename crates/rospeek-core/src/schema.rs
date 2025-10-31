@@ -31,7 +31,7 @@ impl TryFrom<&str> for MessageSchema {
     /// ```
     fn try_from(type_name: &str) -> Result<Self, Self::Error> {
         let idl = find_ros_idl_path(type_name)
-            .with_context(|| format!("IDL file not found for {}", type_name))?;
+            .with_context(|| format!("IDL file not found for {type_name}"))?;
         parse_idl_to_schema(idl, type_name)
     }
 }

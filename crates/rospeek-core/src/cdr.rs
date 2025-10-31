@@ -283,7 +283,7 @@ pub fn try_decode_json(
         .topics()?
         .into_iter()
         .find(|t| t.name == topic)
-        .ok_or_else(|| anyhow::anyhow!("Topic not found: {}", topic))?;
+        .ok_or_else(|| anyhow::anyhow!("Topic not found: {topic}"))?;
 
     let schema = Arc::new(MessageSchema::try_from(topic_info.type_name.as_ref())?);
 

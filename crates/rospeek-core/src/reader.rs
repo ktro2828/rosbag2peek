@@ -139,7 +139,7 @@ pub enum StorageType {
 
 impl Display for StorageType {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 

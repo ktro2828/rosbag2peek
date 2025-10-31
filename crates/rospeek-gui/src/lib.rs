@@ -18,5 +18,5 @@ pub fn spawn_app() -> RosPeekResult<()> {
         native_options,
         Box::new(|cc| Ok(Box::new(App::<ReaderBackend>::new(cc)))),
     )
-    .map_err(|e| anyhow::anyhow!("GUI error: {}", e))
+    .map_err(|e| anyhow::anyhow!("GUI error: {e}"))
 }
