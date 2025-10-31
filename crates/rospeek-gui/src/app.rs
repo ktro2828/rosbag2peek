@@ -187,7 +187,7 @@ impl<B: Backend + 'static> App<B> {
         });
 
         if let (Some(topic), Some(schema)) = (&self.current_topic, &self.current_schema) {
-            ui.monospace(to_rich_text(&format!("Topic: {}", topic)).strong());
+            ui.monospace(to_rich_text(&format!("Topic: {topic}")).strong());
             ui.add_space(4.0);
             egui::ScrollArea::vertical().show(ui, |ui| {
                 let mut decoder = CdrDecoder::from_schema(schema);
@@ -259,7 +259,7 @@ impl<B: Backend + 'static> eframe::App for App<B> {
                 }
                 Event::Error(e) => {
                     egui::Window::new("Error").show(ctx, |ui| {
-                        ui.label(format!("Error: {}", e));
+                        ui.label(format!("Error: {e}"));
                     });
                 }
             }
@@ -321,7 +321,7 @@ fn dump_bytes(bytes: &[u8], max_line: usize) -> String {
             }
 
             if let Some(byte) = chunk.get(i) {
-                out.push_str(&format!("{:02x} ", byte));
+                out.push_str(&format!("{byte:02x} "));
             } else {
                 out.push_str("   ");
             }

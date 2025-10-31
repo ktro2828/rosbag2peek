@@ -81,7 +81,7 @@ fn main() -> RosPeekResult<()> {
                     .name
                     .split("/")
                     .find(|s| !s.is_empty())
-                    .map(|s| format!("/{}", s))
+                    .map(|s| format!("/{s}"))
                     .unwrap_or_else(|| "/".to_string());
                 grouped.entry(key).or_default().push(topic);
             }
@@ -112,10 +112,10 @@ fn main() -> RosPeekResult<()> {
             since,
             until,
         } => {
-            println!(">> Start decoding: {}", topic);
+            println!(">> Start decoding: {topic}");
             let reader = create_reader(bag)?;
             println!("✨Finish decoding all messages");
-            println!(">> Start dumping results into {:?}", format);
+            println!(">> Start dumping results into {format:?}");
             let filename = match format {
                 Format::Json => {
                     let filename = topic.trim_start_matches('/').replace('/', ".") + ".json";
@@ -136,7 +136,7 @@ fn main() -> RosPeekResult<()> {
                     filename
                 }
             };
-            println!("✨Success to save {:?} to: {}", format, filename);
+            println!("✨Success to save {format:?} to: {filename}");
         }
         Commands::App => spawn_app()?,
     }
