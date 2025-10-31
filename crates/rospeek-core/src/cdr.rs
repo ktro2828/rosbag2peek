@@ -11,22 +11,24 @@ use crate::{BagReader, FieldType, MessageField, MessageSchema, RosPeekResult, fl
 
 #[derive(Debug)]
 enum Endianness {
-    Little,
-    Big,
+    Little, // Little-endian 0x01
+    Big,    // Big-endian 0x00
+}
+
+impl From<&[u8]> for Endianness {
+    fn from(bytes: &[u8]) -> Self {
+        match bytes.get(1).copied().unwrap_or(0x01) {
+            0x00 => Endianness::Big,
+            0x01 => Endianness::Little,
+            _ => Endianness::Little,
+        }
+    }
 }
 
 pub struct CdrDecoder<'a> {
-    cursor: Cursor<&'a [u8]>,
     endianness: Endianness,
+    cursor: Cursor<&'a [u8]>,
     cache: HashMap<String, Arc<MessageSchema>>,
-}
-
-fn to_endianness(data: &[u8]) -> Endianness {
-    match data.get(1).copied().unwrap_or(0x01) {
-        0x00 => Endianness::Big,
-        0x01 => Endianness::Little,
-        _ => Endianness::Little,
-    }
 }
 
 impl<'a> CdrDecoder<'a> {
@@ -35,12 +37,9 @@ impl<'a> CdrDecoder<'a> {
     /// # Arguments
     /// * `data` - CDR-encoded data
     pub fn new(data: &'a [u8]) -> Self {
-        // determine endianness by checking the second byte
-        let endianness = to_endianness(data);
-
         Self {
+            endianness: Endianness::from(data),
             cursor: Cursor::new(&data[4..]), // first 4bytes are header, so skip them
-            endianness,
             cache: HashMap::new(),
         }
     }
@@ -53,8 +52,8 @@ impl<'a> CdrDecoder<'a> {
         let mut cache = HashMap::new();
         cache.insert(schema.type_name.clone(), Arc::new(schema.clone()));
         Self {
-            cursor: Cursor::new(&[]),
             endianness: Endianness::Little,
+            cursor: Cursor::new(&[]),
             cache,
         }
     }
@@ -64,7 +63,7 @@ impl<'a> CdrDecoder<'a> {
     /// # Arguments
     /// * `data` - CDR-encoded data
     pub fn reset(&mut self, data: &'a [u8]) -> &mut Self {
-        self.endianness = to_endianness(data);
+        self.endianness = Endianness::from(data);
         self.cursor = Cursor::new(&data[4..]);
         self
     }
