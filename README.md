@@ -25,7 +25,7 @@ ros2 bag info  |█████████████████████�
 ### Build
 
 ```bash
-git clone git@github.com:ktro2828/rosbag2peek.git
+git clone https://github.com/ktro2828/rosbag2peek.git
 cd rosbag2peek
 cargo build --release
 ```
