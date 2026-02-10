@@ -6,6 +6,15 @@
 
 `rospeek` is a blazing-fast, cross-platform ROS 2 bag analyzer written in Rust.
 
+```txt
+Execution time [s] (log scale)
+0.1      1       10      100
+|--------|-------|-------|
+
+rospeek info   |█                               | 0.79 s
+ros2 bag info  |██████████████████████████████  | 29.1 s  (~36.9× slower)
+```
+
 ## Features
 
 - Cross-platform -- Works on Linux, macOS, and Windows
@@ -15,13 +24,15 @@
 
 ### Build
 
-```shell
+```bash
+git clone https://github.com/ktro2828/rosbag2peek.git
+cd rosbag2peek
 cargo build --release
 ```
 
 ### Install CLI
 
-```shell
+```bash
 cargo install --path crates/rospeek-cli
 ```
 
@@ -31,7 +42,7 @@ Then, you can refer to usage of CLI with `rospeek -h`.
 
 This command shows overviews of a bag file, similar to `rosbag2 info`:
 
-```shell
+```bash
 rospeek info <BAG_FILE>
 ```
 
@@ -39,7 +50,7 @@ rospeek info <BAG_FILE>
 
 This command shows a list of serialized messages:
 
-```shell
+```bash
 rospeek show <BAG_FILE> -t <TOPIC_NAME>
 ```
 
@@ -47,7 +58,7 @@ rospeek show <BAG_FILE> -t <TOPIC_NAME>
 
 This command decodes topic messages and dumps them into JSON or CSV format.
 
-```shell
+```bash
 rospeek dump <BAG_FILE> -t <TOPIC_NAME> [-f json|csv]
 ```
 
@@ -55,13 +66,13 @@ The output file is saved with the filename that separates the topic namespace by
 
 For example, the following command dumps `/foo/bar` into `foo.bar.json`:
 
-```shell
+```bash
 rospeek dump <BAG_FILE> -t /foo/bar -f json
 ```
 
 You can also dump messages between two timestamps:
 
-```shell
+```bash
 rospeek dump <BAG_FILE> -t /foo/bar -f json --since 1640995200 --until 1640995260
 ```
 
@@ -69,6 +80,6 @@ rospeek dump <BAG_FILE> -t /foo/bar -f json --since 1640995200 --until 164099526
 
 This command spawns a GUI application for visualizing bag files:
 
-```shell
+```bash
 rospeek app
 ```
