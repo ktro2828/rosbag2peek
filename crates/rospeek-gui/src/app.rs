@@ -8,8 +8,11 @@ use crate::backend::Backend;
 
 #[derive(Debug)]
 enum Command {
-    LoadTopic { name: String },
-    PageNext,
+    LoadTopic {
+        name: String,
+        offset: usize,
+        limit: usize,
+    },
 }
 
 #[derive(Debug)]
@@ -17,6 +20,7 @@ enum Event {
     Topics(Vec<Topic>),
     Page {
         topic: String,
+        offset: usize,
         msgs: Vec<RawMessage>,
     },
     Error(String),
@@ -36,7 +40,8 @@ pub struct App<B: Backend + 'static> {
     topic_filter: String,
     current_schema: Option<MessageSchema>,
     current_topic: Option<String>,
-    current_page: usize,
+    page_offset: usize,
+    page_size: usize,
     page: Vec<RawMessage>,
     view_mode: ViewMode,
     // backend workers
@@ -64,7 +69,8 @@ impl<B: Backend + 'static> App<B> {
             topic_filter: String::new(),
             current_schema: None,
             current_topic: None,
-            current_page: 0,
+            page_offset: 0,
+            page_size: 200,
             page: Vec::new(),
             view_mode: ViewMode::Auto,
             tx: txc,
@@ -94,19 +100,22 @@ impl<B: Backend + 'static> App<B> {
                         let _ = txe.send(Event::Topics(tmp_topics));
                         while let Ok(cmd) = rxc.recv() {
                             match cmd {
-                                Command::LoadTopic { name } => {
-                                    match bend.read_messages(&name, None, 200) {
-                                        Ok(msgs) => {
-                                            let _ = txe.send(Event::Page { topic: name, msgs });
-                                        }
-                                        Err(e) => {
-                                            let _ = txe.send(Event::Error(e.to_string()));
-                                        }
+                                Command::LoadTopic {
+                                    name,
+                                    offset,
+                                    limit,
+                                } => match bend.read_messages(&name, None, limit, Some(offset)) {
+                                    Ok(msgs) => {
+                                        let _ = txe.send(Event::Page {
+                                            topic: name,
+                                            offset,
+                                            msgs,
+                                        });
                                     }
-                                }
-                                Command::PageNext => {
-                                    // TODO: keep cursor; request next page
-                                }
+                                    Err(e) => {
+                                        let _ = txe.send(Event::Error(e.to_string()));
+                                    }
+                                },
                             }
                         }
                     });
@@ -116,7 +125,7 @@ impl<B: Backend + 'static> App<B> {
                     self.topics = topics;
                     self.current_schema = None;
                     self.current_topic = None;
-                    self.current_page = 0;
+                    self.page_offset = 0;
                     self.page.clear();
                     self.tx = txc;
                     self.rx = rxe;
@@ -127,7 +136,7 @@ impl<B: Backend + 'static> App<B> {
                     self.topics.clear();
                     self.current_schema = None;
                     self.current_topic = None;
-                    self.current_page = 0;
+                    self.page_offset = 0;
                     egui::PopupCloseBehavior::default();
                     eprintln!("Open failed: {e:?}")
                 }
@@ -145,7 +154,7 @@ impl<B: Backend + 'static> App<B> {
 
         let filter = self.topic_filter.to_lowercase();
         egui::ScrollArea::vertical().show(ui, |ui| {
-            for (i, topic) in self.topics.iter().enumerate() {
+            for topic in self.topics.iter() {
                 if !filter.is_empty() && !topic.name.to_lowercase().contains(&filter) {
                     continue;
                 }
@@ -159,9 +168,11 @@ impl<B: Backend + 'static> App<B> {
                 {
                     self.current_schema = MessageSchema::try_from(topic.type_name.as_ref()).ok();
                     self.current_topic = Some(topic.name.clone());
-                    self.current_page += i;
+                    self.page_offset = 0;
                     let _ = self.tx.send(Command::LoadTopic {
                         name: topic.name.clone(),
+                        offset: 0,
+                        limit: self.page_size,
                     });
                 }
             }
@@ -236,8 +247,15 @@ impl<B: Backend + 'static> App<B> {
             if ui.button("▶").clicked() { /* TODO(ktro2828): Implement timeline playback */ }
             if ui.button("⏸").clicked() { /* TODO(ktro2828): Implement timeline pause */ }
             if ui.button("⏹").clicked() { /* TODO(ktro2828): Implement timeline stop */ }
-            if ui.button("⏭").clicked() {
-                let _ = self.tx.send(Command::PageNext);
+            if ui.button("⏭").clicked()
+                && let Some(topic) = self.current_topic.clone()
+            {
+                let next_offset = self.page_offset + self.page_size;
+                let _ = self.tx.send(Command::LoadTopic {
+                    name: topic,
+                    offset: next_offset,
+                    limit: self.page_size,
+                });
             }
             ui.add_space(8.0);
             ui.label(to_rich_text("Timeline"));
@@ -252,8 +270,13 @@ impl<B: Backend + 'static> eframe::App for App<B> {
                 Event::Topics(ts) => {
                     self.topics = ts;
                 }
-                Event::Page { topic, msgs } => {
+                Event::Page {
+                    topic,
+                    offset,
+                    msgs,
+                } => {
                     if Some(topic.clone()) == self.current_topic {
+                        self.page_offset = offset;
                         self.page = msgs;
                     }
                 }
