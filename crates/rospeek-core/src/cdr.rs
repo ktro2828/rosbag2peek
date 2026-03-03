@@ -269,6 +269,8 @@ impl<'a> CdrDecoder<'a> {
 /// * `topic` - The topic to decode messages for.
 /// * `since` - The start time to decode messages from.
 /// * `until` - The end time to decode messages to.
+/// * `limit` - Optional maximum number of messages to decode.
+/// * `offset` - Optional number of messages to skip after filtering.
 ///
 /// # Returns
 /// A vector of JSON values representing the decoded messages.
@@ -277,6 +279,8 @@ pub fn try_decode_json(
     topic: &str,
     since: Option<u64>,
     until: Option<u64>,
+    limit: Option<usize>,
+    offset: Option<usize>,
 ) -> RosPeekResult<Vec<serde_json::Value>> {
     let topic_info = reader
         .topics()?
@@ -286,12 +290,7 @@ pub fn try_decode_json(
 
     let schema = Arc::new(MessageSchema::try_from(topic_info.type_name.as_ref())?);
 
-    let messages = match (since, until) {
-        (Some(since), Some(until)) => reader.read_messages_between(topic, since, until)?,
-        (Some(since), None) => reader.read_messages_since(topic, since)?,
-        (None, Some(until)) => reader.read_messages_until(topic, until)?,
-        _ => reader.read_messages(topic)?,
-    };
+    let messages = reader.read_messages_range(topic, since, until, limit, offset)?;
 
     let values = messages
         .par_iter()
@@ -311,6 +310,8 @@ pub fn try_decode_json(
 /// * `topic` - The topic to decode.
 /// * `since` - The start time to decode messages from.
 /// * `until` - The end time to decode messages to.
+/// * `limit` - Optional maximum number of messages to decode.
+/// * `offset` - Optional number of messages to skip after filtering.
 ///
 /// # Returns
 /// A tuple containing the column names and rows of the decoded CSV.
@@ -319,8 +320,10 @@ pub fn try_decode_csv(
     topic: &str,
     since: Option<u64>,
     until: Option<u64>,
+    limit: Option<usize>,
+    offset: Option<usize>,
 ) -> RosPeekResult<(BTreeSet<String>, Vec<Vec<String>>)> {
-    let json_values = try_decode_json(reader, topic, since, until)?;
+    let json_values = try_decode_json(reader, topic, since, until, limit, offset)?;
 
     let mut columns = BTreeSet::new();
     let mut rows = Vec::with_capacity(json_values.len());
