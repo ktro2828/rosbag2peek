@@ -93,19 +93,63 @@ impl BagReader for McapReader {
     }
 
     fn read_messages(&self, topic_name: &str) -> RosPeekResult<Vec<RawMessage>> {
-        let stream = self.as_stream()?;
+        self.read_messages_range(topic_name, None, None, None, None)
+    }
 
-        stream
-            .into_iter()
-            .filter_map(|message_result| match message_result {
-                Ok(message) if message.channel.topic == topic_name => Some(Ok(RawMessage {
-                    timestamp: message.publish_time,
-                    topic_id: message.channel.id,
-                    data: message.data.into(),
-                })),
-                Ok(_) => None, // Skip messages from other topics
-                Err(e) => Some(Err(anyhow::Error::from(e))), // Convert McapError to anyhow::Error
-            })
-            .collect::<RosPeekResult<Vec<RawMessage>>>()
+    fn read_messages_range(
+        &self,
+        topic_name: &str,
+        start_ns: Option<u64>,
+        end_ns: Option<u64>,
+        limit: Option<usize>,
+        offset: Option<usize>,
+    ) -> RosPeekResult<Vec<RawMessage>> {
+        let stream = self.as_stream()?;
+        let mut results = Vec::new();
+        let mut skipped = 0usize;
+
+        for message_result in stream.into_iter() {
+            let message = match message_result {
+                Ok(message) => message,
+                Err(e) => return Err(anyhow::Error::from(e)),
+            };
+
+            if message.channel.topic != topic_name {
+                continue;
+            }
+
+            let ts = message.publish_time;
+            if let Some(start) = start_ns
+                && ts < start
+            {
+                continue;
+            }
+            if let Some(end) = end_ns
+                && ts > end
+            {
+                continue;
+            }
+
+            if let Some(offset) = offset
+                && skipped < offset
+            {
+                skipped += 1;
+                continue;
+            }
+
+            results.push(RawMessage {
+                timestamp: ts,
+                topic_id: message.channel.id,
+                data: message.data.into(),
+            });
+
+            if let Some(limit) = limit
+                && results.len() >= limit
+            {
+                break;
+            }
+        }
+
+        Ok(results)
     }
 }

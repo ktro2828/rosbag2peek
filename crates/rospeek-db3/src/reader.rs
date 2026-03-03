@@ -6,7 +6,7 @@ use rospeek_core::{
     reader::{BagStats, StorageType},
     size_gb, to_duration_sec,
 };
-use rusqlite::Connection;
+use rusqlite::{Connection, params_from_iter, types::Value as SqlValue};
 
 pub struct Db3Reader {
     connection: rusqlite::Connection,
@@ -72,7 +72,18 @@ impl BagReader for Db3Reader {
     }
 
     fn read_messages(&self, topic_name: &str) -> RosPeekResult<Vec<rospeek_core::RawMessage>> {
-        let topic_id = self
+        self.read_messages_range(topic_name, None, None, None, None)
+    }
+
+    fn read_messages_range(
+        &self,
+        topic_name: &str,
+        start_ns: Option<u64>,
+        end_ns: Option<u64>,
+        limit: Option<usize>,
+        offset: Option<usize>,
+    ) -> RosPeekResult<Vec<rospeek_core::RawMessage>> {
+        let topic_id: u16 = self
             .connection
             .query_row(
                 "SELECT id FROM topics WHERE name = ?1",
@@ -81,11 +92,37 @@ impl BagReader for Db3Reader {
             )
             .map_err(|_| anyhow!("Topic not found: {topic_name}"))?;
 
-        let mut statement = self.connection.prepare(
-            "SELECT timestamp, data FROM messages WHERE topic_id = ?1 ORDER BY timestamp ASC",
-        )?;
+        let mut sql = String::from("SELECT timestamp, data FROM messages WHERE topic_id = ?");
+        let mut params: Vec<SqlValue> = vec![SqlValue::from(topic_id as i64)];
 
-        let rows = statement.query_map([topic_id], |row| {
+        if let Some(start) = start_ns {
+            sql.push_str(" AND timestamp >= ?");
+            params.push(SqlValue::from(start as i64));
+        }
+        if let Some(end) = end_ns {
+            sql.push_str(" AND timestamp <= ?");
+            params.push(SqlValue::from(end as i64));
+        }
+
+        sql.push_str(" ORDER BY timestamp ASC");
+
+        let mut has_limit = false;
+        if let Some(limit) = limit {
+            sql.push_str(" LIMIT ?");
+            params.push(SqlValue::from(limit as i64));
+            has_limit = true;
+        }
+        if let Some(offset) = offset {
+            if !has_limit {
+                sql.push_str(" LIMIT -1");
+            }
+            sql.push_str(" OFFSET ?");
+            params.push(SqlValue::from(offset as i64));
+        }
+
+        let mut statement = self.connection.prepare(&sql)?;
+
+        let rows = statement.query_map(params_from_iter(params), |row| {
             Ok(RawMessage {
                 timestamp: row.get(0)?,
                 topic_id,

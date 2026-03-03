@@ -39,6 +39,49 @@ pub trait BagReader: Send {
     /// A result containing a vector of raw messages or an error.
     fn read_messages(&self, topic_name: &str) -> RosPeekResult<Vec<RawMessage>>;
 
+    /// Reads messages from the bag file within optional bounds, with optional paging.
+    ///
+    /// # Arguments
+    /// * `topic_name` - The name of the topic to read messages from.
+    /// * `start_ns` - Optional start timestamp (inclusive).
+    /// * `end_ns` - Optional end timestamp (inclusive).
+    /// * `limit` - Optional maximum number of messages to return.
+    /// * `offset` - Optional number of messages to skip after filtering.
+    ///
+    /// # Returns
+    /// A result containing a vector of raw messages or an error.
+    fn read_messages_range(
+        &self,
+        topic_name: &str,
+        start_ns: Option<u64>,
+        end_ns: Option<u64>,
+        limit: Option<usize>,
+        offset: Option<usize>,
+    ) -> RosPeekResult<Vec<RawMessage>> {
+        let mut messages = self.read_messages(topic_name)?;
+
+        if let Some(start) = start_ns {
+            messages.retain(|msg| msg.timestamp >= start);
+        }
+        if let Some(end) = end_ns {
+            messages.retain(|msg| msg.timestamp <= end);
+        }
+        if let Some(offset) = offset {
+            if offset < messages.len() {
+                messages.drain(0..offset);
+            } else {
+                messages.clear();
+            }
+        }
+        if let Some(limit) = limit
+            && messages.len() > limit
+        {
+            messages.truncate(limit);
+        }
+
+        Ok(messages)
+    }
+
     /// Reads messages from the bag file since a given timestamp.
     ///
     /// # Note
@@ -51,12 +94,7 @@ pub trait BagReader: Send {
     /// # Returns
     /// A result containing a vector of raw messages or an error.
     fn read_messages_since(&self, topic_name: &str, since: u64) -> RosPeekResult<Vec<RawMessage>> {
-        let messages = self.read_messages(topic_name)?;
-        let filtered_messages = messages
-            .into_iter()
-            .filter(|msg| msg.timestamp >= since)
-            .collect();
-        Ok(filtered_messages)
+        self.read_messages_range(topic_name, Some(since), None, None, None)
     }
 
     /// Reads messages from the bag file until a given timestamp.
@@ -71,12 +109,7 @@ pub trait BagReader: Send {
     /// # Returns
     /// A result containing a vector of raw messages or an error.
     fn read_messages_until(&self, topic_name: &str, until: u64) -> RosPeekResult<Vec<RawMessage>> {
-        let messages = self.read_messages(topic_name)?;
-        let filtered_messages = messages
-            .into_iter()
-            .filter(|msg| msg.timestamp <= until)
-            .collect();
-        Ok(filtered_messages)
+        self.read_messages_range(topic_name, None, Some(until), None, None)
     }
 
     /// Reads messages from the bag file between two timestamps.
@@ -97,12 +130,7 @@ pub trait BagReader: Send {
         since: u64,
         until: u64,
     ) -> RosPeekResult<Vec<RawMessage>> {
-        let messages = self.read_messages(topic_name)?;
-        let filtered_messages = messages
-            .into_iter()
-            .filter(|msg| msg.timestamp >= since && msg.timestamp <= until)
-            .collect();
-        Ok(filtered_messages)
+        self.read_messages_range(topic_name, Some(since), Some(until), None, None)
     }
 }
 
