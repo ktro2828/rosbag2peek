@@ -28,6 +28,9 @@ enum Commands {
 
         #[arg(short, long, help = "Number of messages to show")]
         count: Option<usize>,
+
+        #[arg(long, help = "Number of messages to skip after filtering")]
+        offset: Option<usize>,
     },
 
     /// Decode CDR-encoded messages and dump them into JSON
@@ -52,6 +55,12 @@ enum Commands {
 
         #[arg(long, help = "Timestamp in nanoseconds until which to read messages")]
         until: Option<u64>,
+
+        #[arg(long, help = "Maximum number of messages to dump")]
+        limit: Option<usize>,
+
+        #[arg(long, help = "Number of messages to skip after filtering")]
+        offset: Option<usize>,
     },
 
     /// Spawn GUI application
@@ -96,12 +105,16 @@ fn main() -> RosPeekResult<()> {
                 }
             }
         }
-        Commands::Show { bag, topic, count } => {
+        Commands::Show {
+            bag,
+            topic,
+            count,
+            offset,
+        } => {
             let reader = create_reader(bag)?;
 
-            let messages = reader.read_messages(&topic)?;
-            let n = count.unwrap_or(messages.len());
-            messages.iter().take(n).enumerate().for_each(|(i, msg)| {
+            let messages = reader.read_messages_range(&topic, None, None, count, offset)?;
+            messages.iter().enumerate().for_each(|(i, msg)| {
                 println!("[{}] t = {} ns, {} bytes", i, msg.timestamp, msg.data.len())
             });
         }
@@ -111,6 +124,8 @@ fn main() -> RosPeekResult<()> {
             format,
             since,
             until,
+            limit,
+            offset,
         } => {
             println!(">> Start decoding: {topic}");
             let reader = create_reader(bag)?;
@@ -120,7 +135,7 @@ fn main() -> RosPeekResult<()> {
                 Format::Json => {
                     let filename = topic.trim_start_matches('/').replace('/', ".") + ".json";
                     let writer = File::create(&filename)?;
-                    let values = try_decode_json(reader, &topic, since, until)?;
+                    let values = try_decode_json(reader, &topic, since, until, limit, offset)?;
                     serde_json::to_writer_pretty(writer, &values)?;
                     filename
                 }
@@ -128,7 +143,8 @@ fn main() -> RosPeekResult<()> {
                     let filename = topic.trim_start_matches('/').replace('/', ".") + ".csv";
                     let writer = File::create(&filename)?;
                     let mut csv_writer = csv::WriterBuilder::new().from_writer(writer);
-                    let (columns, values) = try_decode_csv(reader, &topic, since, until)?;
+                    let (columns, values) =
+                        try_decode_csv(reader, &topic, since, until, limit, offset)?;
                     csv_writer.write_record(columns)?;
                     for value in values {
                         csv_writer.write_record(value)?
