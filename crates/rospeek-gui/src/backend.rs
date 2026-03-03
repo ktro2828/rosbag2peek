@@ -46,16 +46,10 @@ impl Backend for ReaderBackend {
         start_ns: Option<u64>,
         limit: usize,
     ) -> RosPeekResult<Vec<RawMessage>> {
-        let mut messages = self.inner.lock().unwrap().read_messages(topic)?;
-
-        if let Some(start) = start_ns {
-            messages.retain(|m| m.timestamp >= start);
-        }
-        if messages.len() > limit {
-            messages.truncate(limit);
-        }
-
-        Ok(messages)
+        self.inner
+            .lock()
+            .unwrap()
+            .read_messages_range(topic, start_ns, None, Some(limit), None)
     }
 }
 
