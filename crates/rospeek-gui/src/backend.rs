@@ -17,6 +17,7 @@ pub trait Backend: Send + Sync {
         topic: &str,
         start_ns: Option<u64>,
         limit: usize,
+        offset: Option<usize>,
     ) -> RosPeekResult<Vec<RawMessage>>;
 }
 
@@ -45,11 +46,12 @@ impl Backend for ReaderBackend {
         topic: &str,
         start_ns: Option<u64>,
         limit: usize,
+        offset: Option<usize>,
     ) -> RosPeekResult<Vec<RawMessage>> {
         self.inner
             .lock()
             .unwrap()
-            .read_messages_range(topic, start_ns, None, Some(limit), None)
+            .read_messages_range(topic, start_ns, None, Some(limit), offset)
     }
 }
 
