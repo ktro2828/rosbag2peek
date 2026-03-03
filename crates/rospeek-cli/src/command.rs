@@ -34,7 +34,7 @@ pub(crate) enum Command {
         offset: Option<usize>,
     },
 
-    /// Decode CDR-encoded messages and dump them into JSON
+    /// Decode CDR-encoded messages and dump them in the specified format
     Dump {
         #[arg(value_name = "BAGFILE", help = "Path to the [.db3, .mcap] bag file")]
         bag: PathBuf,

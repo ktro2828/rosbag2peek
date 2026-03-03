@@ -70,7 +70,7 @@ fn main() -> RosPeekResult<()> {
         } => {
             println!(">> Start decoding: {topic}");
             let reader = create_reader(bag)?;
-            println!("✨Finish decoding all messages");
+            println!("✨Successfully opened bag, starting to decode messages");
             println!(">> Start dumping results into {format:?}");
             let filename = match format {
                 DumpFormat::Json => {
