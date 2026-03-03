@@ -1,83 +1,24 @@
-use clap::{Parser, Subcommand, ValueEnum};
+mod command;
+
+use clap::Parser;
 use rospeek_core::{RosPeekResult, try_decode_csv, try_decode_json};
 use rospeek_gui::{create_reader, spawn_app};
-use std::{collections::BTreeMap, fs::File, path::PathBuf};
+use std::{collections::BTreeMap, fs::File};
+
+use crate::command::{Command, DumpFormat};
 
 #[derive(Parser)]
 #[command(name = "rospeek", about = "Peek into rosbag files", long_about = None)]
 struct Cli {
     #[command(subcommand)]
-    command: Commands,
-}
-
-#[derive(Subcommand)]
-enum Commands {
-    /// Show bag file information and list all topics in the bag file
-    Info {
-        #[arg(value_name = "BAGFILE", help = "Path to the [.db3, .mcap] bag file")]
-        bag: PathBuf,
-    },
-
-    /// Show the first N messages of a topic
-    Show {
-        #[arg(value_name = "BAGFILE", help = "Path to the [.db3, .mcap] bag file")]
-        bag: PathBuf,
-
-        #[arg(short, long, help = "Topic name to read messages (e.g. /tf)")]
-        topic: String,
-
-        #[arg(short, long, help = "Number of messages to show")]
-        count: Option<usize>,
-
-        #[arg(long, help = "Number of messages to skip after filtering")]
-        offset: Option<usize>,
-    },
-
-    /// Decode CDR-encoded messages and dump them into JSON
-    Dump {
-        #[arg(value_name = "BAGFILE", help = "Path to the [.db3, .mcap] bag file")]
-        bag: PathBuf,
-
-        #[arg(short, long, help = "Topic name to decode (e.g. /tf)")]
-        topic: String,
-
-        #[arg(
-            short,
-            long,
-            value_enum,
-            default_value = "json",
-            help = "Output format"
-        )]
-        format: Format,
-
-        #[arg(long, help = "Timestamp in nanoseconds since which to read messages")]
-        since: Option<u64>,
-
-        #[arg(long, help = "Timestamp in nanoseconds until which to read messages")]
-        until: Option<u64>,
-
-        #[arg(long, help = "Maximum number of messages to dump")]
-        limit: Option<usize>,
-
-        #[arg(long, help = "Number of messages to skip after filtering")]
-        offset: Option<usize>,
-    },
-
-    /// Spawn GUI application
-    App,
-}
-
-#[derive(Debug, Clone, ValueEnum)]
-enum Format {
-    Json,
-    Csv,
+    command: Command,
 }
 
 fn main() -> RosPeekResult<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Info { bag } => {
+        Command::Info { bag } => {
             let reader = create_reader(bag)?;
 
             println!("{}", reader.stats());
@@ -105,7 +46,7 @@ fn main() -> RosPeekResult<()> {
                 }
             }
         }
-        Commands::Show {
+        Command::Show {
             bag,
             topic,
             count,
@@ -118,7 +59,7 @@ fn main() -> RosPeekResult<()> {
                 println!("[{}] t = {} ns, {} bytes", i, msg.timestamp, msg.data.len())
             });
         }
-        Commands::Dump {
+        Command::Dump {
             bag,
             topic,
             format,
@@ -132,14 +73,14 @@ fn main() -> RosPeekResult<()> {
             println!("✨Finish decoding all messages");
             println!(">> Start dumping results into {format:?}");
             let filename = match format {
-                Format::Json => {
+                DumpFormat::Json => {
                     let filename = topic.trim_start_matches('/').replace('/', ".") + ".json";
                     let writer = File::create(&filename)?;
                     let values = try_decode_json(reader, &topic, since, until, limit, offset)?;
                     serde_json::to_writer_pretty(writer, &values)?;
                     filename
                 }
-                Format::Csv => {
+                DumpFormat::Csv => {
                     let filename = topic.trim_start_matches('/').replace('/', ".") + ".csv";
                     let writer = File::create(&filename)?;
                     let mut csv_writer = csv::WriterBuilder::new().from_writer(writer);
@@ -154,7 +95,7 @@ fn main() -> RosPeekResult<()> {
             };
             println!("✨Success to save {format:?} to: {filename}");
         }
-        Commands::App => spawn_app()?,
+        Command::App => spawn_app()?,
     }
 
     Ok(())
